@@ -1,6 +1,7 @@
 .build
 dist
 DerivedData
+Archive Export
 .DS_Store
 *.xcodeproj/xcuserdata
 *.xcodeproj/project.xcworkspace/xcuserdata

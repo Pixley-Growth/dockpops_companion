@@ -11,9 +11,32 @@ final class PopletSyncService {
     private var dockPopsIcon: NSImage?
     private let popletExecutableName = "DockPopsPoplet"
 
+    func hasStoredSharedContainerBookmark() -> Bool {
+        SharedContainerAccess.hasStoredBookmark()
+    }
+
+    @MainActor
+    func requestSharedContainerAccess() throws {
+        _ = try SharedContainerAccess.requestAccess()
+    }
+
+    func startupSnapshot() -> SyncSnapshot {
+        let dockPopsFound = dockPopsApplicationURL() != nil
+        return SyncSnapshot(
+            pops: [],
+            poplets: [],
+            stats: .zero,
+            hasSharedContainerAccess: false,
+            hasStoredSharedContainerBookmark: hasStoredSharedContainerBookmark(),
+            metadataAvailable: false,
+            dockPopsFound: dockPopsFound,
+            errorDescription: nil
+        )
+    }
+
     func sync() -> SyncSnapshot {
         let dockPopsFound = dockPopsApplicationURL() != nil
-        let paths = SharedContainerPaths(containerURL: AppPaths.expectedGroupContainerURL)
+        let hasStoredBookmark = hasStoredSharedContainerBookmark()
 
         guard dockPopsFound else {
             return SyncSnapshot(
@@ -21,6 +44,20 @@ final class PopletSyncService {
                 poplets: [],
                 stats: .zero,
                 hasSharedContainerAccess: false,
+                hasStoredSharedContainerBookmark: hasStoredBookmark,
+                metadataAvailable: false,
+                dockPopsFound: dockPopsFound,
+                errorDescription: nil
+            )
+        }
+
+        guard hasStoredBookmark else {
+            return SyncSnapshot(
+                pops: [],
+                poplets: [],
+                stats: .zero,
+                hasSharedContainerAccess: false,
+                hasStoredSharedContainerBookmark: false,
                 metadataAvailable: false,
                 dockPopsFound: dockPopsFound,
                 errorDescription: nil
@@ -30,52 +67,61 @@ final class PopletSyncService {
         do {
             try ensureDirectory(AppPaths.popletsDirectoryURL)
             try ensureDirectory(AppPaths.companionSupportDirectoryURL)
-            try ensureSharedContainerAccess(at: paths.containerURL)
+            return try SharedContainerAccess.withAccess { containerURL in
+                let paths = SharedContainerPaths(containerURL: containerURL)
+                try ensureSharedContainerAccess(at: paths.containerURL)
 
-            let metadataAvailable = fileManager.fileExists(atPath: paths.shortcutGroupsURL.path)
+                let metadataAvailable = fileManager.fileExists(atPath: paths.shortcutGroupsURL.path)
 
-            guard metadataAvailable else {
+                guard metadataAvailable else {
+                    return SyncSnapshot(
+                        pops: [],
+                        poplets: loadExistingPoplets(paths: paths),
+                        stats: .zero,
+                        hasSharedContainerAccess: true,
+                        hasStoredSharedContainerBookmark: true,
+                        metadataAvailable: false,
+                        dockPopsFound: dockPopsFound,
+                        errorDescription: nil
+                    )
+                }
+
+                let pops = try popStore.loadPops(from: paths.shortcutGroupsURL)
+                let result = try syncPoplets(for: pops, paths: paths)
                 return SyncSnapshot(
-                    pops: [],
-                    poplets: loadExistingPoplets(paths: paths),
-                    stats: .zero,
+                    pops: pops,
+                    poplets: result.poplets,
+                    stats: result.stats,
                     hasSharedContainerAccess: true,
-                    metadataAvailable: false,
+                    hasStoredSharedContainerBookmark: true,
+                    metadataAvailable: true,
                     dockPopsFound: dockPopsFound,
                     errorDescription: nil
                 )
             }
+        } catch let error as SharedContainerAccessError {
+            let message = error == .permissionRequired || error == .userCancelled
+                ? nil
+                : error.localizedDescription
 
-            let pops = try popStore.loadPops(from: paths.shortcutGroupsURL)
-            let result = try syncPoplets(for: pops, paths: paths)
             return SyncSnapshot(
-                pops: pops,
-                poplets: result.poplets,
-                stats: result.stats,
-                hasSharedContainerAccess: true,
-                metadataAvailable: true,
+                pops: [],
+                poplets: [],
+                stats: .zero,
+                hasSharedContainerAccess: false,
+                hasStoredSharedContainerBookmark: hasStoredSharedContainerBookmark(),
+                metadataAvailable: false,
                 dockPopsFound: dockPopsFound,
-                errorDescription: nil
+                errorDescription: message
             )
         } catch {
-            if isMissingSharedContainer(error) {
-                return SyncSnapshot(
-                    pops: [],
-                    poplets: loadExistingPoplets(paths: paths),
-                    stats: .zero,
-                    hasSharedContainerAccess: true,
-                    metadataAvailable: false,
-                    dockPopsFound: dockPopsFound,
-                    errorDescription: nil
-                )
-            }
-
             Self.logger.error("Sync failed: \(error.localizedDescription, privacy: .public)")
             return SyncSnapshot(
                 pops: [],
                 poplets: [],
                 stats: .zero,
                 hasSharedContainerAccess: false,
+                hasStoredSharedContainerBookmark: hasStoredBookmark,
                 metadataAvailable: false,
                 dockPopsFound: dockPopsFound,
                 errorDescription: error.localizedDescription
@@ -163,11 +209,6 @@ final class PopletSyncService {
 
     private func ensureSharedContainerAccess(at url: URL) throws {
         _ = try url.resourceValues(forKeys: [.isDirectoryKey])
-    }
-
-    private func isMissingSharedContainer(_ error: Error) -> Bool {
-        let nsError = error as NSError
-        return nsError.domain == NSCocoaErrorDomain && nsError.code == NSFileReadNoSuchFileError
     }
 
     private func resolvedNames(for pops: [PopRecord]) -> [UUID: String] {
@@ -346,11 +387,19 @@ final class PopletSyncService {
     }
 
     private func bundledPopletExecutableURL() -> URL? {
-        let primary = Bundle.main.resourceURL?
+        let helper = Bundle.main.bundleURL
+            .appending(path: "Contents", directoryHint: .isDirectory)
+            .appending(path: "Helpers", directoryHint: .isDirectory)
+            .appending(path: popletExecutableName)
+        if fileManager.fileExists(atPath: helper.path) {
+            return helper
+        }
+
+        let legacy = Bundle.main.resourceURL?
             .appending(path: "PopletSupport", directoryHint: .isDirectory)
             .appending(path: popletExecutableName)
-        if let primary, fileManager.fileExists(atPath: primary.path) {
-            return primary
+        if let legacy, fileManager.fileExists(atPath: legacy.path) {
+            return legacy
         }
         return nil
     }

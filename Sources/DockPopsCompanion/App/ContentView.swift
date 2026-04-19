@@ -28,12 +28,12 @@ struct ContentView: View {
         }
         .toolbar {
             ToolbarItemGroup(placement: .primaryAction) {
-                Button(model.isRefreshing ? "Refreshing…" : "Refresh") {
+                Button(primaryActionTitle) {
                     Task {
-                        await model.refreshNow()
+                        await runPrimaryAction()
                     }
                 }
-                .disabled(model.isRefreshing)
+                .disabled(model.isRefreshing || primaryActionDisabled)
 
                 if model.hasSharedFolderAccess {
                     Button("Reveal Folder") {
@@ -46,6 +46,9 @@ struct ContentView: View {
 
     private var popletsGridView: some View {
         VStack(spacing: 18) {
+            WorkflowGuideView()
+                .frame(maxWidth: 720)
+
             browserShell
                 .frame(maxWidth: 560, maxHeight: .infinity, alignment: .top)
         }
@@ -124,15 +127,15 @@ struct ContentView: View {
         if selectedCount > 0 {
             return "\(selectedCount) selected"
         }
-        return "\(model.poplets.count) poplets"
+        return "\(model.poplets.count) ready"
     }
 
     private var browserHintText: String {
         let selectedCount = visibleSelection.count
         if selectedCount > 0 {
-            return "Drag the selected Pops into the Dock."
+            return "Drag the selected Pops into the Dock. Anything you add or change in DockPops will show up here automatically."
         }
-        return "Drag to the Dock, or Command-click to select multiple Pops."
+        return "Make or edit Pops in DockPops, then drag them into the Dock here. Command-click selects multiple Pops."
     }
 
     private var connectStateView: some View {
@@ -141,9 +144,9 @@ struct ContentView: View {
             systemImage: "hand.raised.square",
             message: model.statusMessage
         ) {
-            Button("Try Again") {
+            Button(sharedAccessActionTitle) {
                 Task {
-                    await model.refreshNow()
+                    await runPrimaryAction()
                 }
             }
             .buttonStyle(.borderedProminent)
@@ -154,6 +157,38 @@ struct ContentView: View {
                 }
                 .buttonStyle(.bordered)
             }
+
+            if model.dockPopsFound {
+                WorkflowGuideView(showsFolderGrantStep: true, emphasizesDockDrop: false)
+                    .frame(maxWidth: 720)
+                    .padding(.top, 8)
+            }
+        }
+    }
+
+    private var primaryActionTitle: String {
+        if !model.hasSharedFolderAccess && model.dockPopsFound {
+            return sharedAccessActionTitle
+        }
+        return model.isRefreshing ? "Refreshing…" : "Refresh"
+    }
+
+    private var sharedAccessActionTitle: String {
+        if model.needsSharedAccessWarmup {
+            return "Continue"
+        }
+        return "Choose Folder Again"
+    }
+
+    private var primaryActionDisabled: Bool {
+        false
+    }
+
+    private func runPrimaryAction() async {
+        if !model.hasSharedFolderAccess && model.dockPopsFound {
+            await model.continueToSharedAccessPrompt()
+        } else {
+            await model.refreshNow()
         }
     }
 
@@ -175,6 +210,10 @@ struct ContentView: View {
                 }
             }
             .buttonStyle(.bordered)
+
+            WorkflowGuideView(emphasizesDockDrop: false)
+                .frame(maxWidth: 720)
+                .padding(.top, 8)
         }
     }
 
@@ -194,6 +233,10 @@ struct ContentView: View {
                 model.revealPopletsFolder()
             }
             .buttonStyle(.bordered)
+
+            WorkflowGuideView(emphasizesDockDrop: false)
+                .frame(maxWidth: 720)
+                .padding(.top, 8)
         }
     }
 
@@ -210,6 +253,143 @@ struct ContentView: View {
         } actions: {
             actions()
         }
+    }
+}
+
+private struct WorkflowGuideView: View {
+    var showsFolderGrantStep = false
+    var emphasizesDockDrop = true
+
+    var body: some View {
+        HStack(alignment: .center, spacing: 14) {
+            if showsFolderGrantStep {
+                GuideStepCard(
+                    symbol: "folder.fill",
+                    title: "Choose Folder Once",
+                    detail: "We remember DockPops' shared folder for future launches."
+                )
+
+                GuideArrow()
+            }
+
+            GuideStepCard(
+                symbol: "app.fill",
+                title: "Make or Edit Pops",
+                detail: "Anything you create or modify in DockPops appears here automatically."
+            )
+
+            GuideArrow()
+
+            GuideStepCard(
+                symbol: "square.grid.2x2.fill",
+                title: "They Show Up Here",
+                detail: "This window refreshes with the latest Poplets from DockPops."
+            )
+
+            GuideArrow()
+
+            DockDropCard(emphasized: emphasizesDockDrop)
+        }
+        .padding(18)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 24, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: 24, style: .continuous)
+                .strokeBorder(.white.opacity(0.08))
+        )
+    }
+}
+
+private struct GuideStepCard: View {
+    let symbol: String
+    let title: String
+    let detail: String
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Image(systemName: symbol)
+                .font(.system(size: 22, weight: .semibold))
+                .foregroundStyle(Color.accentColor)
+                .frame(width: 36, height: 36)
+                .background(Color.accentColor.opacity(0.12), in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+
+            Text(title)
+                .font(.headline.weight(.semibold))
+
+            Text(detail)
+                .font(.subheadline)
+                .foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+        .padding(16)
+        .frame(maxWidth: .infinity, minHeight: 148, alignment: .topLeading)
+        .background(Color.white.opacity(0.06), in: RoundedRectangle(cornerRadius: 18, style: .continuous))
+    }
+}
+
+private struct GuideArrow: View {
+    var body: some View {
+        Image(systemName: "arrow.right")
+            .font(.title3.weight(.semibold))
+            .foregroundStyle(.secondary)
+            .padding(.horizontal, 2)
+    }
+}
+
+private struct DockDropCard: View {
+    let emphasized: Bool
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            ZStack(alignment: .bottom) {
+                HStack(spacing: -10) {
+                    ForEach(0..<3, id: \.self) { index in
+                        RoundedRectangle(cornerRadius: 14, style: .continuous)
+                            .fill(
+                                LinearGradient(
+                                    colors: [
+                                        Color.accentColor.opacity(index == 0 ? 0.9 : 0.55),
+                                        Color.accentColor.opacity(index == 0 ? 0.55 : 0.3)
+                                    ],
+                                    startPoint: .topLeading,
+                                    endPoint: .bottomTrailing
+                                )
+                            )
+                            .frame(width: 42, height: 42)
+                            .overlay(
+                                RoundedRectangle(cornerRadius: 14, style: .continuous)
+                                    .stroke(.white.opacity(0.24))
+                            )
+                            .offset(y: index == 0 ? -8 : 0)
+                            .shadow(color: .black.opacity(0.12), radius: 8, y: 4)
+                    }
+                }
+
+                RoundedRectangle(cornerRadius: 18, style: .continuous)
+                    .fill(.thinMaterial)
+                    .frame(height: 22)
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 18, style: .continuous)
+                            .stroke(.white.opacity(0.18))
+                    )
+                    .offset(y: 22)
+            }
+            .frame(height: 86)
+
+            Text("Drag to the Dock")
+                .font(.headline.weight(.semibold))
+
+            Text(emphasized
+                ? "Pick any Poplet here and drag it straight into the Dock to pin it."
+                : "When your Pops show up here, drag the Poplets you want into the Dock."
+            )
+            .font(.subheadline)
+            .foregroundStyle(.secondary)
+            .fixedSize(horizontal: false, vertical: true)
+        }
+        .padding(16)
+        .frame(maxWidth: .infinity, minHeight: 148, alignment: .topLeading)
+        .background(Color.white.opacity(0.06), in: RoundedRectangle(cornerRadius: 18, style: .continuous))
     }
 }
 

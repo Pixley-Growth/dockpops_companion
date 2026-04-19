@@ -33,6 +33,7 @@ struct SyncSnapshot: Sendable {
     var poplets: [PopletStatus]
     var stats: SyncStats
     var hasSharedContainerAccess: Bool
+    var hasStoredSharedContainerBookmark: Bool
     var metadataAvailable: Bool
     var dockPopsFound: Bool
     var errorDescription: String?

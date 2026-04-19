@@ -35,6 +35,8 @@ targets:
     deploymentTarget: "14.0"
     sources:
       - path: Sources/DockPopsCompanion
+      - path: Assets.xcassets
+        buildPhase: resources
     dependencies:
       - target: DockPopsPoplet
     settings:
