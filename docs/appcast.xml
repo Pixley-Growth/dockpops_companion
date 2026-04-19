@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<rss
+  version="2.0"
+  xmlns:sparkle="http://www.andymatuschak.org/xml-namespaces/sparkle"
+  xmlns:dc="http://purl.org/dc/elements/1.1/">
+  <channel>
+    <title>DockPops Companion Updates</title>
+    <link>https://github.com/Pixley-Growth/dockpops_companion/releases</link>
+    <description>Release feed for DockPops Companion.</description>
+    <language>en</language>
+  </channel>
+</rss>

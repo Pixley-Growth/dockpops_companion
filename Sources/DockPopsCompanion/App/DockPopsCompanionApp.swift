@@ -6,6 +6,7 @@ private let launchWindowSize = NSSize(width: 640, height: 620)
 @main
 struct DockPopsCompanionApp: App {
     @State private var model = CompanionModel()
+    @State private var appUpdater = AppUpdater()
 
     var body: some Scene {
         Window("DockPops Companion", id: "main") {
@@ -13,6 +14,14 @@ struct DockPopsCompanionApp: App {
                 .background(WindowLaunchSizingView(size: launchWindowSize))
         }
         .defaultSize(width: launchWindowSize.width, height: launchWindowSize.height)
+        .commands {
+            CommandGroup(after: .appInfo) {
+                Button("Check for Updates…") {
+                    appUpdater.checkForUpdates()
+                }
+                .disabled(!appUpdater.canCheckForUpdates)
+            }
+        }
     }
 }
 

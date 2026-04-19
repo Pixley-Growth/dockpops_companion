@@ -6,6 +6,13 @@ options:
     macOS: "14.0"
   createIntermediateGroups: true
   groupSortPosition: top
+  xcodeVersion: "16.4"
+  projectFormat: xcode16_0
+
+packages:
+  Sparkle:
+    url: https://github.com/sparkle-project/Sparkle
+    from: 2.9.1
 
 settings:
   base:
@@ -14,9 +21,21 @@ settings:
     CURRENT_PROJECT_VERSION: 1
     MARKETING_VERSION: 1.0
     PRODUCT_NAME: $(TARGET_NAME)
-    CODE_SIGNING_ALLOWED: NO
-    CODE_SIGNING_REQUIRED: NO
-    ENABLE_HARDENED_RUNTIME: NO
+    CODE_SIGNING_ALLOWED: YES
+    CODE_SIGNING_REQUIRED: YES
+    DEAD_CODE_STRIPPING: YES
+    DEVELOPMENT_TEAM: JN6FKBBBYQ
+    ENABLE_HARDENED_RUNTIME: YES
+    ENABLE_USER_SCRIPT_SANDBOXING: NO
+  configs:
+    Debug:
+      CODE_SIGN_IDENTITY: Apple Development
+      CODE_SIGN_STYLE: Automatic
+      PROVISIONING_PROFILE_SPECIFIER: ""
+    Release:
+      CODE_SIGN_IDENTITY: Developer ID Application
+      CODE_SIGN_STYLE: Manual
+      PROVISIONING_PROFILE_SPECIFIER: ""
 
 targets:
   DockPopsPoplet:
@@ -27,7 +46,10 @@ targets:
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.dockpops.companion.poplet
+        CODE_SIGN_INJECT_BASE_ENTITLEMENTS: NO
+        CREATE_INFOPLIST_SECTION_IN_BINARY: YES
         GENERATE_INFOPLIST_FILE: YES
+        SKIP_INSTALL: YES
 
   DockPopsCompanion:
     type: application
@@ -39,21 +61,43 @@ targets:
         buildPhase: resources
     dependencies:
       - target: DockPopsPoplet
+      - package: Sparkle
+        product: Sparkle
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.dockpops.companion
         GENERATE_INFOPLIST_FILE: YES
         INFOPLIST_KEY_CFBundleDisplayName: DockPops Companion
+        INFOPLIST_KEY_LSApplicationCategoryType: public.app-category.utilities
         INFOPLIST_KEY_LSMinimumSystemVersion: "14.0"
         INFOPLIST_KEY_NSPrincipalClass: NSApplication
+        INFOPLIST_KEY_SUEnableAutomaticChecks: NO
+        INFOPLIST_KEY_SUFeedURL: https://pixley-growth.github.io/dockpops_companion/appcast.xml
+        INFOPLIST_KEY_SUPublicEDKey: MmxfAJ5hd5USiQ3XDZPCEDGzpKJj4L65wXX5Hpbpywo=
     postBuildScripts:
       - name: Copy Poplet Support
         script: |
           set -euo pipefail
-          RESOURCES_DIR="$TARGET_BUILD_DIR/$UNLOCALIZED_RESOURCES_FOLDER_PATH/PopletSupport"
-          mkdir -p "$RESOURCES_DIR"
-          cp "$BUILT_PRODUCTS_DIR/DockPopsPoplet" "$RESOURCES_DIR/DockPopsPoplet"
-          chmod +x "$RESOURCES_DIR/DockPopsPoplet"
+          HELPERS_DIR="$TARGET_BUILD_DIR/$CONTENTS_FOLDER_PATH/Helpers"
+          POPLET_SOURCE="$BUILT_PRODUCTS_DIR/DockPopsPoplet"
+          ARCHIVE_POPLET_SOURCE="$UNINSTALLED_PRODUCTS_DIR/$PLATFORM_NAME/DockPopsPoplet"
+          POPLET_DESTINATION="$HELPERS_DIR/DockPopsPoplet"
+          SIGNING_IDENTITY="${EXPANDED_CODE_SIGN_IDENTITY:-}"
+          if [ -z "$SIGNING_IDENTITY" ]; then
+            SIGNING_IDENTITY="Developer ID Application: Applacat LLC (JN6FKBBBYQ)"
+          fi
+          if [ -f "$ARCHIVE_POPLET_SOURCE" ]; then
+            POPLET_SOURCE="$ARCHIVE_POPLET_SOURCE"
+          fi
+          mkdir -p "$HELPERS_DIR"
+          cp "$POPLET_SOURCE" "$POPLET_DESTINATION"
+          chmod +x "$POPLET_DESTINATION"
+          codesign --force --sign "$SIGNING_IDENTITY" -o runtime --identifier com.dockpops.companion.poplet "$POPLET_DESTINATION"
+        inputFiles:
+          - $(BUILT_PRODUCTS_DIR)/DockPopsPoplet
+          - $(UNINSTALLED_PRODUCTS_DIR)/$(PLATFORM_NAME)/DockPopsPoplet
+        outputFiles:
+          - $(TARGET_BUILD_DIR)/$(CONTENTS_FOLDER_PATH)/Helpers/DockPopsPoplet
         basedOnDependencyAnalysis: false
 
 schemes:
@@ -64,3 +108,22 @@ schemes:
         DockPopsPoplet: all
     run:
       config: Debug
+    archive:
+      config: Release
+      revealArchiveInOrganizer: true
+      postActions:
+        - name: Export Archived App
+          settingsTarget: DockPopsCompanion
+          script: |
+            set -eu
+            ARCHIVED_APP="$ARCHIVE_PRODUCTS_PATH/Applications/$WRAPPER_NAME"
+            EXPORT_DIR="$SRCROOT/Archive Export"
+            EXPORT_APP="$EXPORT_DIR/$WRAPPER_NAME"
+            if [ ! -d "$ARCHIVED_APP" ]; then
+              echo "Archived app not found at $ARCHIVED_APP" >&2
+              exit 1
+            fi
+            mkdir -p "$EXPORT_DIR"
+            rm -rf "$EXPORT_APP"
+            /usr/bin/ditto "$ARCHIVED_APP" "$EXPORT_APP"
+            echo "Archived app exported to $EXPORT_APP"

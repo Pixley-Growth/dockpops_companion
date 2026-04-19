@@ -3,7 +3,7 @@
 	archiveVersion = 1;
 	classes = {
 	};
-	objectVersion = 63;
+	objectVersion = 77;
 	objects = {
 
 /* Begin PBXBuildFile section */
@@ -14,14 +14,17 @@
 		48D3D75BF1E10FFBBD476C93 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = FCF0E9127F3C44E81B14B3B3 /* Assets.xcassets */; };
 		522B475BD4A8345FCD563F66 /* PopletIconView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9E5D91F351285A8A82DDE96F /* PopletIconView.swift */; };
 		6908134615AD796F0841A477 /* PopletStatus.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9FB099EAF70E6CE380F609A2 /* PopletStatus.swift */; };
+		745285C9C932E60E5F9E762C /* DockPopsPoplet in Resources */ = {isa = PBXBuildFile; fileRef = A000AB7B7C1DF47229EAD909 /* DockPopsPoplet */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 		75E490F62A19AEBFB6AC8490 /* CompanionModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 24E4C8F5283BA21C31D56F7A /* CompanionModel.swift */; };
 		7D83C2E78C7761D79F983827 /* SharedContainerAccess.swift in Sources */ = {isa = PBXBuildFile; fileRef = 875664A21CB29411288F8493 /* SharedContainerAccess.swift */; };
 		7FB0323A1B6139974B5143B7 /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 83E474D160950590CAC11A77 /* ContentView.swift */; };
 		844496DD73404E91584D21A5 /* String+Sanitize.swift in Sources */ = {isa = PBXBuildFile; fileRef = 95546703B8F33259BAB1FF41 /* String+Sanitize.swift */; };
 		A2E7617813CB6D9BB5E1FED3 /* PopRecord.swift in Sources */ = {isa = PBXBuildFile; fileRef = 345CDFCA435429593379F0DB /* PopRecord.swift */; };
+		E1D5204DE49BF4E910CA8FA2 /* Sparkle in Frameworks */ = {isa = PBXBuildFile; productRef = 7541306F6443D5BDE5F85796 /* Sparkle */; };
 		F45836CB7FFE7C180D8EB075 /* PopletFinderGridView.swift in Sources */ = {isa = PBXBuildFile; fileRef = CD77AE508B49686CDE6E5EB0 /* PopletFinderGridView.swift */; };
 		F73971345169814F18753717 /* DockPopsCompanionApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1360089843F05BCCB40C7514 /* DockPopsCompanionApp.swift */; };
 		FAC0D7612F8CD8977F3AFE1C /* NSImage+CGImage.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1AD5790CB451EC2FA268EAE /* NSImage+CGImage.swift */; };
+		FC06E05075C7A4D9908F478E /* AppUpdater.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5EF045C3A2A683853F67D732 /* AppUpdater.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -41,18 +44,30 @@
 		24E4C8F5283BA21C31D56F7A /* CompanionModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CompanionModel.swift; sourceTree = "<group>"; };
 		345CDFCA435429593379F0DB /* PopRecord.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PopRecord.swift; sourceTree = "<group>"; };
 		3C640986E5669907988DDE94 /* SharedPopStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SharedPopStore.swift; sourceTree = "<group>"; };
+		5EF045C3A2A683853F67D732 /* AppUpdater.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppUpdater.swift; sourceTree = "<group>"; };
 		83E474D160950590CAC11A77 /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
 		855BDB0B404A9C60D9007DB4 /* DockPopsPopletMain.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DockPopsPopletMain.swift; sourceTree = "<group>"; };
 		875664A21CB29411288F8493 /* SharedContainerAccess.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SharedContainerAccess.swift; sourceTree = "<group>"; };
 		95546703B8F33259BAB1FF41 /* String+Sanitize.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "String+Sanitize.swift"; sourceTree = "<group>"; };
 		9E5D91F351285A8A82DDE96F /* PopletIconView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PopletIconView.swift; sourceTree = "<group>"; };
 		9FB099EAF70E6CE380F609A2 /* PopletStatus.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PopletStatus.swift; sourceTree = "<group>"; };
-		A000AB7B7C1DF47229EAD909 /* DockPopsPoplet */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = DockPopsPoplet; sourceTree = BUILT_PRODUCTS_DIR; };
+		A000AB7B7C1DF47229EAD909 /* DockPopsPoplet */ = {isa = PBXFileReference; includeInIndex = 0; path = DockPopsPoplet; sourceTree = BUILT_PRODUCTS_DIR; };
 		A1AD5790CB451EC2FA268EAE /* NSImage+CGImage.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "NSImage+CGImage.swift"; sourceTree = "<group>"; };
 		CC4259405605AAC63B187981 /* PopletSyncService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PopletSyncService.swift; sourceTree = "<group>"; };
 		CD77AE508B49686CDE6E5EB0 /* PopletFinderGridView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PopletFinderGridView.swift; sourceTree = "<group>"; };
 		FCF0E9127F3C44E81B14B3B3 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 /* End PBXFileReference section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		55CFCA9133CE78AB66D16327 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				E1D5204DE49BF4E910CA8FA2 /* Sparkle in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
 		102C11208869EFC9F9BE69BD /* Products */ = {
@@ -107,6 +122,7 @@
 		9C3214AD464460DA2A2E8408 /* App */ = {
 			isa = PBXGroup;
 			children = (
+				5EF045C3A2A683853F67D732 /* AppUpdater.swift */,
 				24E4C8F5283BA21C31D56F7A /* CompanionModel.swift */,
 				83E474D160950590CAC11A77 /* ContentView.swift */,
 				1360089843F05BCCB40C7514 /* DockPopsCompanionApp.swift */,
@@ -151,6 +167,7 @@
 			buildPhases = (
 				07D6B556980E107F8818E9F4 /* Sources */,
 				A919BFD56E6EB4398538CE70 /* Resources */,
+				55CFCA9133CE78AB66D16327 /* Frameworks */,
 				6137B7174F9A625EFAFF39D7 /* Copy Poplet Support */,
 			);
 			buildRules = (
@@ -160,6 +177,7 @@
 			);
 			name = DockPopsCompanion;
 			packageProductDependencies = (
+				7541306F6443D5BDE5F85796 /* Sparkle */,
 			);
 			productName = DockPopsCompanion;
 			productReference = 15F6DDAD9BE2A2B5964AA37C /* DockPopsCompanion.app */;
@@ -189,7 +207,15 @@
 			isa = PBXProject;
 			attributes = {
 				BuildIndependentTargetsInParallel = YES;
-				LastUpgradeCheck = 2640;
+				LastUpgradeCheck = 1640;
+				TargetAttributes = {
+					CB473E1393EF28C40963D9F0 = {
+						DevelopmentTeam = JN6FKBBBYQ;
+					};
+					CBDC704038608E62A3551B5B = {
+						DevelopmentTeam = JN6FKBBBYQ;
+					};
+				};
 			};
 			buildConfigurationList = D9728FE6659CFD60F46FFA1D /* Build configuration list for PBXProject "DockPopsCompanion" */;
 			compatibilityVersion = "Xcode 14.0";
@@ -201,6 +227,10 @@
 			);
 			mainGroup = 33F0B1972284514B90DA6578;
 			minimizedProjectReferenceProxies = 1;
+			packageReferences = (
+				7E628B0C15B092BA0DB4FC1D /* XCRemoteSwiftPackageReference "Sparkle" */,
+			);
+			preferredProjectObjectVersion = 77;
 			projectDirPath = "";
 			projectRoot = "";
 			targets = (
@@ -216,6 +246,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				48D3D75BF1E10FFBBD476C93 /* Assets.xcassets in Resources */,
+				745285C9C932E60E5F9E762C /* DockPopsPoplet in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -252,6 +283,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				09A117C10AB6744C60FF0B2C /* AppPaths.swift in Sources */,
+				FC06E05075C7A4D9908F478E /* AppUpdater.swift in Sources */,
 				75E490F62A19AEBFB6AC8490 /* CompanionModel.swift in Sources */,
 				7FB0323A1B6139974B5143B7 /* ContentView.swift in Sources */,
 				F73971345169814F18753717 /* DockPopsCompanionApp.swift in Sources */,
@@ -319,14 +351,16 @@
 				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
 				CLANG_WARN_UNREACHABLE_CODE = YES;
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
-				CODE_SIGNING_ALLOWED = NO;
-				CODE_SIGNING_REQUIRED = NO;
+				CODE_SIGNING_ALLOWED = YES;
+				CODE_SIGNING_REQUIRED = YES;
+				CODE_SIGN_IDENTITY = "Apple Development";
+				CODE_SIGN_STYLE = Automatic;
 				COPY_PHASE_STRIP = NO;
 				CURRENT_PROJECT_VERSION = 1;
 				DEAD_CODE_STRIPPING = YES;
 				DEBUG_INFORMATION_FORMAT = dwarf;
 				DEVELOPMENT_TEAM = JN6FKBBBYQ;
-				ENABLE_HARDENED_RUNTIME = NO;
+				ENABLE_HARDENED_RUNTIME = YES;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
 				ENABLE_TESTABILITY = YES;
 				ENABLE_USER_SCRIPT_SANDBOXING = NO;
@@ -350,8 +384,8 @@
 				MTL_FAST_MATH = YES;
 				ONLY_ACTIVE_ARCH = YES;
 				PRODUCT_NAME = "$(TARGET_NAME)";
+				PROVISIONING_PROFILE_SPECIFIER = "";
 				SDKROOT = macosx;
-				STRING_CATALOG_GENERATE_SYMBOLS = YES;
 				SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;
 				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
 				SWIFT_VERSION = 6.0;
@@ -361,23 +395,15 @@
 		84C27B86158E12BE4919D5B4 /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				CODE_SIGN_IDENTITY = "Developer ID Application";
 				CODE_SIGN_INJECT_BASE_ENTITLEMENTS = NO;
-				"CODE_SIGN_IDENTITY[sdk=macosx*]" = "Developer ID Application";
-				CODE_SIGN_STYLE = Manual;
 				COMBINE_HIDPI_IMAGES = YES;
 				CREATE_INFOPLIST_SECTION_IN_BINARY = YES;
-				DEAD_CODE_STRIPPING = YES;
-				DEVELOPMENT_TEAM = JN6FKBBBYQ;
-				"DEVELOPMENT_TEAM[sdk=macosx*]" = JN6FKBBBYQ;
-				ENABLE_HARDENED_RUNTIME = YES;
 				GENERATE_INFOPLIST_FILE = YES;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/../Frameworks",
 				);
 				PRODUCT_BUNDLE_IDENTIFIER = com.dockpops.companion.poplet;
-				PROVISIONING_PROFILE_SPECIFIER = "";
 				SDKROOT = macosx;
 				SKIP_INSTALL = YES;
 			};
@@ -418,7 +444,8 @@
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				CODE_SIGNING_ALLOWED = YES;
 				CODE_SIGNING_REQUIRED = YES;
-				CODE_SIGN_IDENTITY = "Apple Development";
+				CODE_SIGN_IDENTITY = "Developer ID Application";
+				CODE_SIGN_STYLE = Manual;
 				COPY_PHASE_STRIP = NO;
 				CURRENT_PROJECT_VERSION = 1;
 				DEAD_CODE_STRIPPING = YES;
@@ -441,8 +468,8 @@
 				MTL_ENABLE_DEBUG_INFO = NO;
 				MTL_FAST_MATH = YES;
 				PRODUCT_NAME = "$(TARGET_NAME)";
+				PROVISIONING_PROFILE_SPECIFIER = "";
 				SDKROOT = macosx;
-				STRING_CATALOG_GENERATE_SYMBOLS = YES;
 				SWIFT_COMPILATION_MODE = wholemodule;
 				SWIFT_OPTIMIZATION_LEVEL = "-O";
 				SWIFT_VERSION = 6.0;
@@ -453,23 +480,21 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
-				CODE_SIGN_IDENTITY = "Apple Development";
-				CODE_SIGN_STYLE = Automatic;
 				COMBINE_HIDPI_IMAGES = YES;
-				DEAD_CODE_STRIPPING = YES;
-				ENABLE_HARDENED_RUNTIME = YES;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_KEY_CFBundleDisplayName = "DockPops Companion";
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.utilities";
 				INFOPLIST_KEY_LSMinimumSystemVersion = 14.0;
 				INFOPLIST_KEY_NSPrincipalClass = NSApplication;
+				INFOPLIST_KEY_SUEnableAutomaticChecks = NO;
+				INFOPLIST_KEY_SUFeedURL = "https://pixley-growth.github.io/dockpops_companion/appcast.xml";
+				INFOPLIST_KEY_SUPublicEDKey = "MmxfAJ5hd5USiQ3XDZPCEDGzpKJj4L65wXX5Hpbpywo=";
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/../Frameworks",
 				);
 				MACOSX_DEPLOYMENT_TARGET = 14.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.dockpops.companion;
-				PROVISIONING_PROFILE_SPECIFIER = "";
 				SDKROOT = macosx;
 			};
 			name = Debug;
@@ -478,26 +503,21 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
-				CODE_SIGN_IDENTITY = "Developer ID Application";
-				"CODE_SIGN_IDENTITY[sdk=macosx*]" = "Developer ID Application";
-				CODE_SIGN_STYLE = Manual;
 				COMBINE_HIDPI_IMAGES = YES;
-				DEAD_CODE_STRIPPING = YES;
-				DEVELOPMENT_TEAM = JN6FKBBBYQ;
-				"DEVELOPMENT_TEAM[sdk=macosx*]" = JN6FKBBBYQ;
-				ENABLE_HARDENED_RUNTIME = YES;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_KEY_CFBundleDisplayName = "DockPops Companion";
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.utilities";
 				INFOPLIST_KEY_LSMinimumSystemVersion = 14.0;
 				INFOPLIST_KEY_NSPrincipalClass = NSApplication;
+				INFOPLIST_KEY_SUEnableAutomaticChecks = NO;
+				INFOPLIST_KEY_SUFeedURL = "https://pixley-growth.github.io/dockpops_companion/appcast.xml";
+				INFOPLIST_KEY_SUPublicEDKey = "MmxfAJ5hd5USiQ3XDZPCEDGzpKJj4L65wXX5Hpbpywo=";
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/../Frameworks",
 				);
 				MACOSX_DEPLOYMENT_TARGET = 14.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.dockpops.companion;
-				PROVISIONING_PROFILE_SPECIFIER = "";
 				SDKROOT = macosx;
 			};
 			name = Release;
@@ -505,21 +525,15 @@
 		F5BF5FC10DFCE89C3A8D0300 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				CODE_SIGN_IDENTITY = "Apple Development";
 				CODE_SIGN_INJECT_BASE_ENTITLEMENTS = NO;
-				"CODE_SIGN_IDENTITY[sdk=macosx*]" = "Apple Development";
-				CODE_SIGN_STYLE = Automatic;
 				COMBINE_HIDPI_IMAGES = YES;
 				CREATE_INFOPLIST_SECTION_IN_BINARY = YES;
-				DEAD_CODE_STRIPPING = YES;
-				ENABLE_HARDENED_RUNTIME = YES;
 				GENERATE_INFOPLIST_FILE = YES;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/../Frameworks",
 				);
 				PRODUCT_BUNDLE_IDENTIFIER = com.dockpops.companion.poplet;
-				PROVISIONING_PROFILE_SPECIFIER = "";
 				SDKROOT = macosx;
 				SKIP_INSTALL = YES;
 			};
@@ -556,6 +570,25 @@
 			defaultConfigurationName = Debug;
 		};
 /* End XCConfigurationList section */
+
+/* Begin XCRemoteSwiftPackageReference section */
+		7E628B0C15B092BA0DB4FC1D /* XCRemoteSwiftPackageReference "Sparkle" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/sparkle-project/Sparkle";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 2.9.1;
+			};
+		};
+/* End XCRemoteSwiftPackageReference section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		7541306F6443D5BDE5F85796 /* Sparkle */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 7E628B0C15B092BA0DB4FC1D /* XCRemoteSwiftPackageReference "Sparkle" */;
+			productName = Sparkle;
+		};
+/* End XCSwiftPackageProductDependency section */
 	};
 	rootObject = B9BB1BB76903803C1D396D89 /* Project object */;
 }
