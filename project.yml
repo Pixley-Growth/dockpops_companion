@@ -1,0 +1,64 @@
+name: DockPopsCompanion
+
+options:
+  minimumXcodeGenVersion: 2.44.1
+  deploymentTarget:
+    macOS: "14.0"
+  createIntermediateGroups: true
+  groupSortPosition: top
+
+settings:
+  base:
+    SWIFT_VERSION: 6.0
+    MACOSX_DEPLOYMENT_TARGET: "14.0"
+    CURRENT_PROJECT_VERSION: 1
+    MARKETING_VERSION: 1.0
+    PRODUCT_NAME: $(TARGET_NAME)
+    CODE_SIGNING_ALLOWED: NO
+    CODE_SIGNING_REQUIRED: NO
+    ENABLE_HARDENED_RUNTIME: NO
+
+targets:
+  DockPopsPoplet:
+    type: tool
+    platform: macOS
+    sources:
+      - path: Sources/DockPopsPoplet
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.dockpops.companion.poplet
+        GENERATE_INFOPLIST_FILE: YES
+
+  DockPopsCompanion:
+    type: application
+    platform: macOS
+    deploymentTarget: "14.0"
+    sources:
+      - path: Sources/DockPopsCompanion
+    dependencies:
+      - target: DockPopsPoplet
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.dockpops.companion
+        GENERATE_INFOPLIST_FILE: YES
+        INFOPLIST_KEY_CFBundleDisplayName: DockPops Companion
+        INFOPLIST_KEY_LSMinimumSystemVersion: "14.0"
+        INFOPLIST_KEY_NSPrincipalClass: NSApplication
+    postBuildScripts:
+      - name: Copy Poplet Support
+        script: |
+          set -euo pipefail
+          RESOURCES_DIR="$TARGET_BUILD_DIR/$UNLOCALIZED_RESOURCES_FOLDER_PATH/PopletSupport"
+          mkdir -p "$RESOURCES_DIR"
+          cp "$BUILT_PRODUCTS_DIR/DockPopsPoplet" "$RESOURCES_DIR/DockPopsPoplet"
+          chmod +x "$RESOURCES_DIR/DockPopsPoplet"
+        basedOnDependencyAnalysis: false
+
+schemes:
+  DockPopsCompanion:
+    build:
+      targets:
+        DockPopsCompanion: all
+        DockPopsPoplet: all
+    run:
+      config: Debug
