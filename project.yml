@@ -18,8 +18,8 @@ settings:
   base:
     SWIFT_VERSION: 6.0
     MACOSX_DEPLOYMENT_TARGET: "14.0"
-    CURRENT_PROJECT_VERSION: 2
-    MARKETING_VERSION: 1.0.1
+    CURRENT_PROJECT_VERSION: 3
+    MARKETING_VERSION: 1.0
     PRODUCT_NAME: $(TARGET_NAME)
     CODE_SIGNING_ALLOWED: YES
     CODE_SIGNING_REQUIRED: YES
@@ -46,6 +46,8 @@ targets:
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.dockpops.companion.poplet
+        CODE_SIGNING_ALLOWED: NO
+        CODE_SIGNING_REQUIRED: NO
         CODE_SIGN_INJECT_BASE_ENTITLEMENTS: NO
         CREATE_INFOPLIST_SECTION_IN_BINARY: NO
         GENERATE_INFOPLIST_FILE: YES
@@ -61,6 +63,7 @@ targets:
         buildPhase: resources
     dependencies:
       - target: DockPopsPoplet
+        embed: false
       - package: Sparkle
         product: Sparkle
     settings:
@@ -74,22 +77,22 @@ targets:
           set -euo pipefail
           HELPERS_DIR="$TARGET_BUILD_DIR/$CONTENTS_FOLDER_PATH/Helpers"
           POPLET_SOURCE="$BUILT_PRODUCTS_DIR/DockPopsPoplet"
-          ARCHIVE_POPLET_SOURCE="$UNINSTALLED_PRODUCTS_DIR/$PLATFORM_NAME/DockPopsPoplet"
           POPLET_DESTINATION="$HELPERS_DIR/DockPopsPoplet"
           SIGNING_IDENTITY="${EXPANDED_CODE_SIGN_IDENTITY:-}"
           if [ -z "$SIGNING_IDENTITY" ]; then
             SIGNING_IDENTITY="Developer ID Application: Applacat LLC (JN6FKBBBYQ)"
           fi
-          if [ -f "$ARCHIVE_POPLET_SOURCE" ]; then
-            POPLET_SOURCE="$ARCHIVE_POPLET_SOURCE"
+          if [ ! -f "$POPLET_SOURCE" ]; then
+            echo "Poplet source not found at $POPLET_SOURCE" >&2
+            exit 1
           fi
           mkdir -p "$HELPERS_DIR"
-          cp "$POPLET_SOURCE" "$POPLET_DESTINATION"
+          /usr/bin/ditto "$POPLET_SOURCE" "$POPLET_DESTINATION"
           chmod +x "$POPLET_DESTINATION"
-          codesign --force --sign "$SIGNING_IDENTITY" -o runtime --identifier com.dockpops.companion.poplet "$POPLET_DESTINATION"
+          /usr/bin/codesign --remove-signature "$POPLET_DESTINATION" >/dev/null 2>&1 || true
+          /usr/bin/codesign --force --sign "$SIGNING_IDENTITY" --timestamp -o runtime --identifier com.dockpops.companion.poplet "$POPLET_DESTINATION"
         inputFiles:
           - $(BUILT_PRODUCTS_DIR)/DockPopsPoplet
-          - $(UNINSTALLED_PRODUCTS_DIR)/$(PLATFORM_NAME)/DockPopsPoplet
         outputFiles:
           - $(TARGET_BUILD_DIR)/$(CONTENTS_FOLDER_PATH)/Helpers/DockPopsPoplet
         basedOnDependencyAnalysis: false

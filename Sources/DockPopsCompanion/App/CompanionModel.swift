@@ -17,7 +17,6 @@ final class CompanionModel {
     var poplets: [PopletStatus] = []
     var stats = SyncStats.zero
     var isRefreshing = false
-    var autoRefresh = false
     var hasSharedFolderAccess = false
     var hasStoredSharedAccessGrant = false
     var metadataAvailable = false
@@ -27,8 +26,14 @@ final class CompanionModel {
     var hasResolvedInitialLaunchState = false
 
     private let syncService = PopletSyncService()
-    @ObservationIgnored private let iconCache = NSCache<NSString, NSImage>()
-    private var refreshLoopTask: Task<Void, Never>?
+    @ObservationIgnored
+    private lazy var sharedContainerWatcher = SharedContainerWatcher { [weak self] in
+        guard let self else { return }
+        Task {
+            await self.refreshNow()
+        }
+    }
+    private var startupTask: Task<Void, Never>?
 
     // MARK: - Presentation
 
@@ -111,23 +116,18 @@ final class CompanionModel {
     // MARK: - Lifecycle
 
     func start() {
-        guard refreshLoopTask == nil else { return }
-        refreshLoopTask = Task { [weak self] in
+        guard startupTask == nil else { return }
+        sharedContainerWatcher.start()
+        startupTask = Task { [weak self] in
             guard let self else { return }
             await loadInitialState()
-            while !Task.isCancelled {
-                try? await Task.sleep(for: .seconds(2))
-                guard !Task.isCancelled else { return }
-                if autoRefresh && hasSharedFolderAccess {
-                    await refreshNow()
-                }
-            }
         }
     }
 
     func stop() {
-        refreshLoopTask?.cancel()
-        refreshLoopTask = nil
+        startupTask?.cancel()
+        startupTask = nil
+        sharedContainerWatcher.stop()
     }
 
     // MARK: - Actions
@@ -174,7 +174,6 @@ final class CompanionModel {
     private func apply(_ snapshot: SyncSnapshot) {
         pops = snapshot.pops
         poplets = snapshot.poplets
-        iconCache.removeAllObjects()
         stats = snapshot.stats
         hasSharedFolderAccess = snapshot.hasSharedContainerAccess
         hasStoredSharedAccessGrant = snapshot.hasStoredSharedContainerBookmark
@@ -182,6 +181,12 @@ final class CompanionModel {
         dockPopsFound = snapshot.dockPopsFound
         errorDescription = snapshot.errorDescription
         lastSync = Date()
+
+        if snapshot.hasStoredSharedContainerBookmark {
+            sharedContainerWatcher.start()
+        } else {
+            sharedContainerWatcher.stop()
+        }
     }
 
     // MARK: - UI Helpers
@@ -195,45 +200,5 @@ final class CompanionModel {
 
     func revealPopletsFolder() {
         NSWorkspace.shared.open(AppPaths.popletsDirectoryURL)
-    }
-
-    func icon(for poplet: PopletStatus) -> NSImage {
-        let key = iconCacheKey(for: poplet)
-        if let cached = iconCache.object(forKey: key) {
-            return cached
-        }
-
-        let image = loadIconImage(for: poplet)
-        image.size = NSSize(width: 256, height: 256)
-        iconCache.setObject(image, forKey: key)
-        return image
-    }
-
-    private func iconCacheKey(for poplet: PopletStatus) -> NSString {
-        let iconURL = poplet.popletURL
-            .appending(path: "Contents", directoryHint: .isDirectory)
-            .appending(path: "Resources", directoryHint: .isDirectory)
-            .appending(path: "AppIcon.icns")
-
-        if let values = try? iconURL.resourceValues(forKeys: [.contentModificationDateKey, .fileSizeKey]) {
-            let timestamp = values.contentModificationDate?.timeIntervalSinceReferenceDate ?? 0
-            let size = values.fileSize ?? 0
-            return "\(poplet.popletURL.path)#\(timestamp)#\(size)" as NSString
-        }
-
-        return poplet.popletURL.path as NSString
-    }
-
-    private func loadIconImage(for poplet: PopletStatus) -> NSImage {
-        let iconURL = poplet.popletURL
-            .appending(path: "Contents", directoryHint: .isDirectory)
-            .appending(path: "Resources", directoryHint: .isDirectory)
-            .appending(path: "AppIcon.icns")
-
-        if let image = NSImage(contentsOf: iconURL) {
-            return image
-        }
-
-        return NSWorkspace.shared.icon(forFile: poplet.popletURL.path)
     }
 }

@@ -15,20 +15,33 @@ final class PopletLiveIconController {
         category: "LiveIcon"
     )
 
-    private let popID: UUID
+    private let fileManager = FileManager.default
+    private let bundleURL: URL
     private let watchedDirectoryURL: URL
     private let popIconURL: URL
 
     private var directorySource: DispatchSourceFileSystemObject?
     private var debounceTask: Task<Void, Never>?
+    private var watcherRetryTask: Task<Void, Never>?
+    /// Timestamp of the most recent `applyLatestIcon` fire. Drives the
+    /// leading-edge throttle in `scheduleDebouncedRefresh` so continuous FS
+    /// events (e.g. a held color drag in the main app firing a PNG write
+    /// every ~100ms) don't starve the Poplet of updates.
+    private var lastApplyAt: ContinuousClock.Instant?
+    /// Minimum interval between `applyLatestIcon` fires. Small enough to
+    /// keep the Poplet tile in near-lockstep with the main app's Dock tile,
+    /// large enough to coalesce the 2-3 redundant FS events an atomic PNG
+    /// write produces (rename + attrib).
+    private let applyCooldown: Duration = .milliseconds(80)
 
-    init(popID: UUID) {
-        self.popID = popID
+    init(popID: UUID, bundleURL: URL = Bundle.main.bundleURL) {
+        self.bundleURL = bundleURL
         self.watchedDirectoryURL = PopletSharedPaths.popIconsDirectoryURL
         self.popIconURL = PopletSharedPaths.popIconURL(for: popID)
     }
 
     func start() {
+        stop()
         applyLatestIcon()
         installDirectoryWatcher()
     }
@@ -36,13 +49,17 @@ final class PopletLiveIconController {
     func stop() {
         debounceTask?.cancel()
         debounceTask = nil
+        watcherRetryTask?.cancel()
+        watcherRetryTask = nil
         directorySource?.cancel()
         directorySource = nil
     }
 
     private func applyLatestIcon() {
         guard let rawImage = PopletIconRendering.loadImage(at: popIconURL) else {
-            // No shared PNG yet — leave the baked bundle icon visible.
+            // The shared PNG may be missing temporarily or gone for good. Fall
+            // back to the bundle icon so the running tile does not stay stale.
+            NSApp.applicationIconImage = NSWorkspace.shared.icon(forFile: bundleURL.path)
             return
         }
         let presented = PopletIconRendering.normalizedCanvas(from: rawImage) ?? rawImage
@@ -57,11 +74,20 @@ final class PopletLiveIconController {
     }
 
     private func installDirectoryWatcher() {
+        guard directorySource == nil else { return }
+
         let fd = open(watchedDirectoryURL.path, O_EVTONLY)
         guard fd >= 0 else {
-            Self.logger.error(
-                "open failed for \(self.watchedDirectoryURL.path, privacy: .public)"
-            )
+            if fileManager.fileExists(atPath: watchedDirectoryURL.path) {
+                Self.logger.error(
+                    "open failed for \(self.watchedDirectoryURL.path, privacy: .public)"
+                )
+            } else {
+                Self.logger.notice(
+                    "waiting for PopIcons directory at \(self.watchedDirectoryURL.path, privacy: .public)"
+                )
+            }
+            scheduleWatcherRetry()
             return
         }
 
@@ -71,7 +97,7 @@ final class PopletLiveIconController {
             queue: .main
         )
         source.setEventHandler { [weak self] in
-            Task { @MainActor [weak self] in
+            MainActor.assumeIsolated { [weak self] in
                 self?.scheduleDebouncedRefresh()
             }
         }
@@ -82,12 +108,46 @@ final class PopletLiveIconController {
         directorySource = source
     }
 
+    /// Leading + trailing-edge throttle. First FS event after `applyCooldown`
+    /// of silence fires immediately (so the Poplet tracks main-app updates in
+    /// near-real-time during continuous drags); subsequent events during the
+    /// cooldown sleep just long enough to hit the cooldown boundary and then
+    /// apply. Replaces a pure trailing-edge 250ms debounce that kept resetting
+    /// during continuous main-app writes and never applied until ~250ms after
+    /// the drag ended.
     private func scheduleDebouncedRefresh() {
         debounceTask?.cancel()
+
+        let now = ContinuousClock.now
+        let timeSinceLast: Duration
+        if let last = lastApplyAt {
+            timeSinceLast = now - last
+        } else {
+            timeSinceLast = .seconds(999)
+        }
+        let delay: Duration = timeSinceLast >= applyCooldown
+            ? .zero
+            : applyCooldown - timeSinceLast
+
         debounceTask = Task { [weak self] in
-            try? await Task.sleep(for: .milliseconds(250))
-            guard !Task.isCancelled else { return }
-            self?.applyLatestIcon()
+            if delay > .zero {
+                try? await Task.sleep(for: delay)
+                guard !Task.isCancelled else { return }
+            }
+            guard let self else { return }
+            self.lastApplyAt = ContinuousClock.now
+            self.applyLatestIcon()
+        }
+    }
+
+    private func scheduleWatcherRetry() {
+        guard watcherRetryTask == nil else { return }
+
+        watcherRetryTask = Task { [weak self] in
+            try? await Task.sleep(for: .seconds(1))
+            guard !Task.isCancelled, let self else { return }
+            self.watcherRetryTask = nil
+            self.installDirectoryWatcher()
         }
     }
 }

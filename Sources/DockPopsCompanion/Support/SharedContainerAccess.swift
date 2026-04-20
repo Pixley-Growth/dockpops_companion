@@ -38,6 +38,27 @@ enum SharedContainerAccess {
         static let bookmarkData = "sharedContainerBookmarkData"
     }
 
+    final class PersistentAccessSession {
+        let url: URL
+
+        private var startedAccess: Bool
+
+        fileprivate init(url: URL, startedAccess: Bool) {
+            self.url = url
+            self.startedAccess = startedAccess
+        }
+
+        func invalidate() {
+            guard startedAccess else { return }
+            url.stopAccessingSecurityScopedResource()
+            startedAccess = false
+        }
+
+        deinit {
+            invalidate()
+        }
+    }
+
     static func hasStoredBookmark() -> Bool {
         UserDefaults.standard.data(forKey: DefaultsKey.bookmarkData) != nil
     }
@@ -88,17 +109,36 @@ enum SharedContainerAccess {
     }
 
     static func withAccess<Result>(_ body: (URL) throws -> Result) throws -> Result {
-        let url = try resolvedContainerURL()
+        let resolution = try resolvedContainerURL()
+        let url = resolution.url
         let startedAccess = url.startAccessingSecurityScopedResource()
         defer {
             if startedAccess {
                 url.stopAccessingSecurityScopedResource()
             }
         }
+        if resolution.isStale {
+            try refreshBookmark(for: url)
+        }
         return try body(url)
     }
 
-    private static func resolvedContainerURL() throws -> URL {
+    static func beginPersistentAccess() throws -> PersistentAccessSession {
+        let resolution = try resolvedContainerURL()
+        let url = resolution.url
+        let startedAccess = url.startAccessingSecurityScopedResource()
+        if resolution.isStale {
+            try refreshBookmark(for: url)
+        }
+        return PersistentAccessSession(url: url, startedAccess: startedAccess)
+    }
+
+    private struct ResolvedBookmark {
+        let url: URL
+        let isStale: Bool
+    }
+
+    private static func resolvedContainerURL() throws -> ResolvedBookmark {
         guard let bookmarkData = UserDefaults.standard.data(forKey: DefaultsKey.bookmarkData) else {
             throw SharedContainerAccessError.permissionRequired
         }
@@ -117,22 +157,22 @@ enum SharedContainerAccess {
                 throw SharedContainerAccessError.invalidSelection
             }
 
-            if isStale {
-                let refreshedBookmark = try url.bookmarkData(
-                    options: [.withSecurityScope],
-                    includingResourceValuesForKeys: nil,
-                    relativeTo: nil
-                )
-                UserDefaults.standard.set(refreshedBookmark, forKey: DefaultsKey.bookmarkData)
-            }
-
-            return url
+            return ResolvedBookmark(url: url, isStale: isStale)
         } catch let error as SharedContainerAccessError {
             throw error
         } catch {
             clearStoredBookmark()
             throw SharedContainerAccessError.unreadableBookmark
         }
+    }
+
+    private static func refreshBookmark(for url: URL) throws {
+        let refreshedBookmark = try url.bookmarkData(
+            options: [.withSecurityScope],
+            includingResourceValuesForKeys: nil,
+            relativeTo: nil
+        )
+        UserDefaults.standard.set(refreshedBookmark, forKey: DefaultsKey.bookmarkData)
     }
 
     private static func isExpectedContainerURL(_ url: URL) -> Bool {

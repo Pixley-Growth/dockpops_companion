@@ -1,4 +1,5 @@
 import AppKit
+import Darwin
 import Foundation
 import os
 
@@ -6,10 +7,11 @@ import os
 final class PopletSyncService {
     private static let logger = Logger(subsystem: "com.dockpops.companion", category: "PopletSync")
     private static let popletAppIconName = "AppIcon"
+    private static let launchServicesRegisterPath =
+        "/System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/LaunchServices.framework/Support/lsregister"
 
     private let fileManager = FileManager.default
     private let popStore = SharedPopStore()
-    private var dockPopsIcon: NSImage?
     private let popletExecutableName = "DockPopsPoplet"
 
     func hasStoredSharedContainerBookmark() -> Bool {
@@ -254,16 +256,41 @@ final class PopletSyncService {
         let oldURL = popletBundleURL(named: oldName)
         let newURL = popletBundleURL(named: newName)
 
-        guard oldURL != newURL, fileManager.fileExists(atPath: oldURL.path) else {
-            return false
-        }
+        return try withBundleLocks(for: [oldURL, newURL]) {
+            guard oldURL != newURL, fileManager.fileExists(atPath: oldURL.path) else {
+                return false
+            }
 
-        if fileManager.fileExists(atPath: newURL.path) {
-            try? fileManager.removeItem(at: newURL)
-        }
+            if !fileManager.fileExists(atPath: newURL.path) {
+                try fileManager.moveItem(at: oldURL, to: newURL)
+                return true
+            }
 
-        try fileManager.moveItem(at: oldURL, to: newURL)
-        return true
+            let parkedOldURL = temporarySiblingURL(for: oldURL, label: "renaming")
+            let parkedNewURL = temporarySiblingURL(for: newURL, label: "occupied")
+            var parkedExistingDestination = false
+
+            try fileManager.moveItem(at: oldURL, to: parkedOldURL)
+            do {
+                if fileManager.fileExists(atPath: newURL.path) {
+                    try fileManager.moveItem(at: newURL, to: parkedNewURL)
+                    parkedExistingDestination = true
+                }
+                try fileManager.moveItem(at: parkedOldURL, to: newURL)
+                if parkedExistingDestination, fileManager.fileExists(atPath: parkedNewURL.path) {
+                    try fileManager.removeItem(at: parkedNewURL)
+                }
+                return true
+            } catch {
+                if fileManager.fileExists(atPath: parkedOldURL.path) {
+                    try? fileManager.moveItem(at: parkedOldURL, to: oldURL)
+                }
+                if parkedExistingDestination, fileManager.fileExists(atPath: parkedNewURL.path) {
+                    try? fileManager.moveItem(at: parkedNewURL, to: newURL)
+                }
+                throw error
+            }
+        }
     }
 
     private func writePopletBundle(
@@ -272,34 +299,12 @@ final class PopletSyncService {
         paths: SharedContainerPaths
     ) throws -> PopletIconSource {
         let bundleURL = popletBundleURL(named: popletName)
-        let contentsURL = bundleURL.appending(path: "Contents", directoryHint: .isDirectory)
+        let stagingBundleURL = temporarySiblingURL(for: bundleURL, label: "staging")
+        let contentsURL = stagingBundleURL.appending(path: "Contents", directoryHint: .isDirectory)
         let macOSURL = contentsURL.appending(path: "MacOS", directoryHint: .isDirectory)
         let resourcesURL = contentsURL.appending(path: "Resources", directoryHint: .isDirectory)
-        let codeSignatureURL = contentsURL.appending(path: "_CodeSignature", directoryHint: .isDirectory)
-        let codeResourcesURL = contentsURL.appending(path: "CodeResources")
         let appIconURL = resourcesURL.appending(path: "\(Self.popletAppIconName).icns")
 
-        try ensureDirectory(bundleURL)
-        if fileManager.fileExists(atPath: macOSURL.path) {
-            try? fileManager.removeItem(at: macOSURL)
-        }
-        if fileManager.fileExists(atPath: resourcesURL.path) {
-            try? fileManager.removeItem(at: resourcesURL)
-        }
-        if fileManager.fileExists(atPath: codeSignatureURL.path) {
-            try? fileManager.removeItem(at: codeSignatureURL)
-        }
-        if fileManager.fileExists(atPath: codeResourcesURL.path) {
-            try? fileManager.removeItem(at: codeResourcesURL)
-        }
-        try ensureDirectory(contentsURL)
-        try ensureDirectory(macOSURL)
-        try ensureDirectory(resourcesURL)
-        try removeLegacyCustomIconArtifacts(from: bundleURL)
-
-        let executableURL = macOSURL.appending(path: popletExecutableName)
-        let infoPlistURL = contentsURL.appending(path: "Info.plist")
-        let pkgInfoURL = contentsURL.appending(path: "PkgInfo")
         guard let bundledPopletURL = bundledPopletExecutableURL() else {
             throw NSError(
                 domain: "DockPopsCompanion",
@@ -308,56 +313,80 @@ final class PopletSyncService {
             )
         }
 
-        try fileManager.copyItem(at: bundledPopletURL, to: executableURL)
-        try fileManager.setAttributes([.posixPermissions: 0o755], ofItemAtPath: executableURL.path)
-        stripCopiedLauncherSignatureIfPossible(at: executableURL)
-
         let resolvedIcon = resolvedPopletIcon(for: pop.id, paths: paths)
-        let iconData = try generatedIconDataIfPossible(for: resolvedIcon.image)
+        return try withBundleLocks(for: [bundleURL]) {
+            let executableURL = macOSURL.appending(path: popletExecutableName)
+            let infoPlistURL = contentsURL.appending(path: "Info.plist")
+            let pkgInfoURL = contentsURL.appending(path: "PkgInfo")
+            let iconData = try generatedIconDataIfPossible(for: resolvedIcon.image)
 
-        var plist: [String: Any] = [
-            "CFBundleDevelopmentRegion": "en",
-            "CFBundleDisplayName": popletName,
-            "CFBundleExecutable": popletExecutableName,
-            "CFBundleIdentifier": "com.dockpops.companion.poplet.\(pop.id.uuidString.lowercased())",
-            "CFBundleInfoDictionaryVersion": "6.0",
-            "CFBundleName": popletName,
-            "CFBundlePackageType": "APPL",
-            "CFBundleShortVersionString": "1.0",
-            "CFBundleSupportedPlatforms": ["MacOSX"],
-            "CFBundleVersion": "1",
-            "LSMinimumSystemVersion": "14.0",
-            "NSPrincipalClass": "NSApplication",
-            "DockPopsTargetPopID": pop.id.uuidString,
-        ]
-        if iconData != nil {
-            plist["CFBundleIconFile"] = Self.popletAppIconName
+            if fileManager.fileExists(atPath: stagingBundleURL.path) {
+                try fileManager.removeItem(at: stagingBundleURL)
+            }
+            try ensureDirectory(stagingBundleURL)
+            try ensureDirectory(contentsURL)
+            try ensureDirectory(macOSURL)
+            try ensureDirectory(resourcesURL)
+            try removeLegacyCustomIconArtifacts(from: stagingBundleURL)
+
+            try fileManager.copyItem(at: bundledPopletURL, to: executableURL)
+            try fileManager.setAttributes([.posixPermissions: 0o755], ofItemAtPath: executableURL.path)
+            stripCopiedLauncherSignatureIfPossible(at: executableURL)
+
+            var plist: [String: Any] = [
+                "CFBundleDevelopmentRegion": "en",
+                "CFBundleDisplayName": popletName,
+                "CFBundleExecutable": popletExecutableName,
+                "CFBundleIdentifier": "com.dockpops.companion.poplet.\(pop.id.uuidString.lowercased())",
+                "CFBundleInfoDictionaryVersion": "6.0",
+                "CFBundleName": popletName,
+                "CFBundlePackageType": "APPL",
+                "CFBundleShortVersionString": currentCompanionShortVersionString(),
+                "CFBundleSupportedPlatforms": ["MacOSX"],
+                "CFBundleVersion": resolvedIcon.bundleVersion,
+                "LSMinimumSystemVersion": "14.0",
+                "NSPrincipalClass": "NSApplication",
+                "DockPopsTargetPopID": pop.id.uuidString,
+            ]
+            if iconData != nil {
+                plist["CFBundleIconFile"] = Self.popletAppIconName
+            }
+            let plistData = try PropertyListSerialization.data(fromPropertyList: plist, format: .xml, options: 0)
+            try plistData.write(to: infoPlistURL, options: .atomic)
+            try Data("APPL????".utf8).write(to: pkgInfoURL, options: .atomic)
+
+            if let iconData {
+                try iconData.write(to: appIconURL, options: .atomic)
+            }
+
+            try signGeneratedPopletBundle(at: stagingBundleURL)
+            try installGeneratedPopletBundle(at: stagingBundleURL, destinationURL: bundleURL)
+            refreshWorkspaceViews(for: bundleURL)
+            return resolvedIcon.source
         }
-        let plistData = try PropertyListSerialization.data(fromPropertyList: plist, format: .xml, options: 0)
-        try plistData.write(to: infoPlistURL, options: .atomic)
-        try Data("APPL????".utf8).write(to: pkgInfoURL, options: .atomic)
-
-        if let iconData {
-            try iconData.write(to: appIconURL, options: .atomic)
-        }
-
-        try signGeneratedPopletBundle(at: bundleURL)
-        refreshWorkspaceViews(for: bundleURL)
-        return resolvedIcon.source
     }
 
     private func resolvedPopletIcon(for popID: UUID, paths: SharedContainerPaths) -> ResolvedPopletIcon {
+        let baseBuildVersion = currentCompanionBuildVersion()
         let popIconURL = paths.sharedPopIconsDirectoryURL.appending(path: "\(popID.uuidString).png")
         if let image = NSImage(contentsOf: popIconURL) {
             let normalized = image.normalizedPopletAppIcon() ?? image
-            return ResolvedPopletIcon(image: normalized, source: .popComposite)
+            return ResolvedPopletIcon(
+                image: normalized,
+                source: .popComposite,
+                bundleVersion: bundleVersionForPopComposite(at: popIconURL, baseBuildVersion: baseBuildVersion)
+            )
         }
 
         if let dockPopsIcon = resolvedDockPopsIcon() {
-            return ResolvedPopletIcon(image: dockPopsIcon, source: .dockPopsApp)
+            return ResolvedPopletIcon(
+                image: dockPopsIcon,
+                source: .dockPopsApp,
+                bundleVersion: baseBuildVersion
+            )
         }
 
-        return ResolvedPopletIcon(image: nil, source: .generic)
+        return ResolvedPopletIcon(image: nil, source: .generic, bundleVersion: baseBuildVersion)
     }
 
     private func inferredIconSource(for popID: UUID, paths: SharedContainerPaths) -> PopletIconSource {
@@ -369,13 +398,8 @@ final class PopletSyncService {
     }
 
     private func resolvedDockPopsIcon() -> NSImage? {
-        if let dockPopsIcon {
-            return dockPopsIcon
-        }
         guard let appURL = dockPopsApplicationURL() else { return nil }
-        let icon = NSWorkspace.shared.icon(forFile: appURL.path)
-        dockPopsIcon = icon
-        return icon
+        return NSWorkspace.shared.icon(forFile: appURL.path)
     }
 
     private func dockPopsApplicationURL() -> URL? {
@@ -401,8 +425,12 @@ final class PopletSyncService {
         for name in previousRegistry.keys where desiredRegistry[name] == nil {
             let url = popletBundleURL(named: name)
             guard fileManager.fileExists(atPath: url.path) else { continue }
-            try fileManager.removeItem(at: url)
-            removed += 1
+            try withBundleLocks(for: [url]) {
+                if fileManager.fileExists(atPath: url.path) {
+                    try fileManager.removeItem(at: url)
+                    removed += 1
+                }
+            }
         }
 
         return removed
@@ -435,22 +463,14 @@ final class PopletSyncService {
     /// writing Info.plist and the icon resources, so strip the inherited launcher
     /// signature first to avoid mixing nested signing states.
     private func stripCopiedLauncherSignatureIfPossible(at executableURL: URL) {
-        let process = Process()
-        process.executableURL = URL(fileURLWithPath: "/usr/bin/codesign")
-        process.arguments = ["--remove-signature", executableURL.path]
-
-        let pipe = Pipe()
-        process.standardError = pipe
-        process.standardOutput = pipe
-
         do {
-            try process.run()
-            process.waitUntilExit()
-            if process.terminationStatus != 0 {
-                let data = pipe.fileHandleForReading.readDataToEndOfFile()
-                if let output = String(data: data, encoding: .utf8), !output.isEmpty {
-                    Self.logger.error("signature strip failed for \(executableURL.lastPathComponent, privacy: .public): \(output, privacy: .public)")
-                }
+            let result = try runProcess(
+                executablePath: "/usr/bin/codesign",
+                arguments: ["--remove-signature", executableURL.path]
+            )
+            if result.terminationStatus != 0 {
+                let output = result.output.isEmpty ? "unknown error" : result.output
+                Self.logger.error("signature strip failed for \(executableURL.lastPathComponent, privacy: .public): \(output, privacy: .public)")
             }
         } catch {
             Self.logger.error("Unable to strip signature for \(executableURL.lastPathComponent, privacy: .public): \(error.localizedDescription, privacy: .public)")
@@ -493,20 +513,13 @@ final class PopletSyncService {
             try data.write(to: iconsetURL.appending(path: variant.name), options: .atomic)
         }
 
-        let process = Process()
-        process.executableURL = URL(fileURLWithPath: "/usr/bin/iconutil")
-        process.arguments = ["-c", "icns", iconsetURL.path, "-o", icnsURL.path]
+        let result = try runProcess(
+            executablePath: "/usr/bin/iconutil",
+            arguments: ["-c", "icns", iconsetURL.path, "-o", icnsURL.path]
+        )
 
-        let pipe = Pipe()
-        process.standardError = pipe
-        process.standardOutput = pipe
-
-        try process.run()
-        process.waitUntilExit()
-
-        guard process.terminationStatus == 0 else {
-            let data = pipe.fileHandleForReading.readDataToEndOfFile()
-            let output = String(data: data, encoding: .utf8)?.trimmingCharacters(in: .whitespacesAndNewlines) ?? "unknown error"
+        guard result.terminationStatus == 0 else {
+            let output = result.output.isEmpty ? "unknown error" : result.output
             throw NSError(
                 domain: "DockPopsCompanion",
                 code: 3,
@@ -523,33 +536,28 @@ final class PopletSyncService {
             try? fileManager.removeItem(at: iconFileURL)
         }
 
-        let process = Process()
-        process.executableURL = URL(fileURLWithPath: "/usr/bin/xattr")
-        process.arguments = ["-d", "com.apple.FinderInfo", bundleURL.path]
+        let removalError: Int32 = bundleURL.withUnsafeFileSystemRepresentation { path in
+            guard let path else { return EINVAL }
+            if Darwin.removexattr(path, "com.apple.FinderInfo", 0) == 0 {
+                return 0
+            }
+            return errno
+        }
 
-        do {
-            try process.run()
-            process.waitUntilExit()
-        } catch {
-            Self.logger.error("Unable to clear Finder icon metadata for \(bundleURL.lastPathComponent, privacy: .public): \(error.localizedDescription, privacy: .public)")
+        if removalError != 0 && removalError != ENOATTR {
+            let message = String(cString: strerror(removalError))
+            Self.logger.error("Unable to clear Finder icon metadata for \(bundleURL.lastPathComponent, privacy: .public): \(message, privacy: .public)")
         }
     }
 
     private func signGeneratedPopletBundle(at bundleURL: URL) throws {
-        let process = Process()
-        process.executableURL = URL(fileURLWithPath: "/usr/bin/codesign")
-        process.arguments = ["--force", "--deep", "--sign", "-", bundleURL.path]
+        let result = try runProcess(
+            executablePath: "/usr/bin/codesign",
+            arguments: ["--force", "--deep", "--sign", "-", bundleURL.path]
+        )
 
-        let pipe = Pipe()
-        process.standardError = pipe
-        process.standardOutput = pipe
-
-        try process.run()
-        process.waitUntilExit()
-
-        guard process.terminationStatus == 0 else {
-            let data = pipe.fileHandleForReading.readDataToEndOfFile()
-            let output = String(data: data, encoding: .utf8)?.trimmingCharacters(in: .whitespacesAndNewlines) ?? "unknown error"
+        guard result.terminationStatus == 0 else {
+            let output = result.output.isEmpty ? "unknown error" : result.output
             throw NSError(
                 domain: "DockPopsCompanion",
                 code: 4,
@@ -564,10 +572,188 @@ final class PopletSyncService {
     private func refreshWorkspaceViews(for bundleURL: URL) {
         NSWorkspace.shared.noteFileSystemChanged(bundleURL.path)
         NSWorkspace.shared.noteFileSystemChanged(AppPaths.popletsDirectoryURL.path)
+        registerWithLaunchServices(bundleURL: bundleURL)
+    }
+
+    private func registerWithLaunchServices(bundleURL: URL) {
+        do {
+            let result = try runProcess(
+                executablePath: Self.launchServicesRegisterPath,
+                arguments: ["-f", bundleURL.path]
+            )
+            if result.terminationStatus != 0 {
+                let output = result.output.isEmpty ? "unknown error" : result.output
+                Self.logger.error("lsregister failed for \(bundleURL.lastPathComponent, privacy: .public): \(output, privacy: .public)")
+            }
+        } catch {
+            Self.logger.error("Unable to refresh Launch Services for \(bundleURL.lastPathComponent, privacy: .public): \(error.localizedDescription, privacy: .public)")
+        }
+    }
+
+    private func currentCompanionShortVersionString() -> String {
+        (Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String) ?? "1.0"
+    }
+
+    private func currentCompanionBuildVersion() -> String {
+        (Bundle.main.object(forInfoDictionaryKey: "CFBundleVersion") as? String) ?? "1"
+    }
+
+    private func bundleVersionForPopComposite(at url: URL, baseBuildVersion: String) -> String {
+        let fallbackVersion = baseBuildVersion
+        guard
+            let resourceValues = try? url.resourceValues(forKeys: [.contentModificationDateKey]),
+            let modificationDate = resourceValues.contentModificationDate
+        else {
+            return fallbackVersion
+        }
+
+        let timestamp = max(1, Int(modificationDate.timeIntervalSince1970))
+        return "\(baseBuildVersion).\(timestamp)"
+    }
+
+    private func installGeneratedPopletBundle(at stagingURL: URL, destinationURL: URL) throws {
+        if fileManager.fileExists(atPath: destinationURL.path) {
+            _ = try fileManager.replaceItemAt(
+                destinationURL,
+                withItemAt: stagingURL,
+                backupItemName: nil,
+                options: []
+            )
+        } else {
+            try fileManager.moveItem(at: stagingURL, to: destinationURL)
+        }
+    }
+
+    private func temporarySiblingURL(for bundleURL: URL, label: String) -> URL {
+        bundleURL.deletingLastPathComponent().appending(
+            path: ".\(bundleURL.deletingPathExtension().lastPathComponent).\(label).\(UUID().uuidString).app",
+            directoryHint: .isDirectory
+        )
+    }
+
+    private func withBundleLocks<Result>(
+        for bundleURLs: [URL],
+        body: () throws -> Result
+    ) throws -> Result {
+        let lockHandles = try bundleURLs
+            .map(\.standardizedFileURL)
+            .reduce(into: [URL: BundleLockHandle]()) { result, bundleURL in
+                let lockURL = bundleLockURL(for: bundleURL)
+                if result[lockURL] == nil {
+                    result[lockURL] = try BundleLockHandle(lockURL: lockURL)
+                }
+            }
+            .sorted { $0.key.path < $1.key.path }
+            .map(\.value)
+
+        defer {
+            lockHandles.reversed().forEach { $0.unlock() }
+        }
+        return try body()
+    }
+
+    private func bundleLockURL(for bundleURL: URL) -> URL {
+        bundleURL.deletingLastPathComponent().appending(path: ".\(bundleURL.lastPathComponent).lock")
+    }
+
+    private func runProcess(
+        executablePath: String,
+        arguments: [String]
+    ) throws -> ProcessExecutionResult {
+        let process = Process()
+        process.executableURL = URL(fileURLWithPath: executablePath)
+        process.arguments = arguments
+
+        let pipe = Pipe()
+        let handle = pipe.fileHandleForReading
+        let collector = ProcessOutputCollector()
+        process.standardError = pipe
+        process.standardOutput = pipe
+
+        handle.readabilityHandler = { handle in
+            let chunk = handle.availableData
+            guard !chunk.isEmpty else {
+                handle.readabilityHandler = nil
+                return
+            }
+            collector.append(chunk)
+        }
+        defer {
+            handle.readabilityHandler = nil
+        }
+
+        try process.run()
+        process.waitUntilExit()
+        let remaining = handle.readDataToEndOfFile()
+        if !remaining.isEmpty {
+            collector.append(remaining)
+        }
+
+        return ProcessExecutionResult(
+            terminationStatus: process.terminationStatus,
+            output: collector.stringValue
+        )
+    }
+}
+
+private struct ProcessExecutionResult {
+    let terminationStatus: Int32
+    let output: String
+}
+
+private final class ProcessOutputCollector: @unchecked Sendable {
+    private let lock = NSLock()
+    private var data = Data()
+
+    func append(_ chunk: Data) {
+        lock.lock()
+        data.append(chunk)
+        lock.unlock()
+    }
+
+    var stringValue: String {
+        lock.lock()
+        let snapshot = data
+        lock.unlock()
+        return String(data: snapshot, encoding: .utf8)?
+            .trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
     }
 }
 
 private struct ResolvedPopletIcon {
     let image: NSImage?
     let source: PopletIconSource
+    let bundleVersion: String
+}
+
+private final class BundleLockHandle {
+    private let fileDescriptor: Int32
+    private var isUnlocked = false
+
+    init(lockURL: URL) throws {
+        let path = lockURL.path
+        let fileDescriptor = open(path, O_CREAT | O_RDWR, S_IRUSR | S_IWUSR)
+        guard fileDescriptor >= 0 else {
+            throw POSIXError(POSIXErrorCode(rawValue: errno) ?? .EIO)
+        }
+
+        guard flock(fileDescriptor, LOCK_EX) == 0 else {
+            let lockError = errno
+            close(fileDescriptor)
+            throw POSIXError(POSIXErrorCode(rawValue: lockError) ?? .EIO)
+        }
+
+        self.fileDescriptor = fileDescriptor
+    }
+
+    func unlock() {
+        guard !isUnlocked else { return }
+        isUnlocked = true
+        flock(fileDescriptor, LOCK_UN)
+        close(fileDescriptor)
+    }
+
+    deinit {
+        unlock()
+    }
 }

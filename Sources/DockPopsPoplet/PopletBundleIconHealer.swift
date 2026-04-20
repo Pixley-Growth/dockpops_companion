@@ -1,3 +1,4 @@
+import Darwin
 import Foundation
 import os
 
@@ -35,7 +36,9 @@ struct PopletBundleIconHealer: Sendable {
 
     func healIfStale() async {
         do {
-            try await performHealIfStale()
+            try await withBundleLock {
+                try await performHealIfStale()
+            }
         } catch {
             Self.logger.error(
                 "icon heal failed for \(bundleURL.lastPathComponent, privacy: .public): \(error.localizedDescription, privacy: .public)"
@@ -145,6 +148,20 @@ struct PopletBundleIconHealer: Sendable {
         }
     }
 
+    private func withBundleLock<Result>(
+        _ body: () async throws -> Result
+    ) async throws -> Result {
+        let lockHandle = try BundleLockHandle(lockURL: bundleLockURL())
+        defer {
+            lockHandle.unlock()
+        }
+        return try await body()
+    }
+
+    private func bundleLockURL() -> URL {
+        bundleURL.deletingLastPathComponent().appending(path: ".\(bundleURL.lastPathComponent).lock")
+    }
+
     @discardableResult
     private func runProcess(
         executable: String,
@@ -158,19 +175,84 @@ struct PopletBundleIconHealer: Sendable {
         let pipe = Pipe()
         process.standardOutput = pipe
         process.standardError = pipe
+        let handle = pipe.fileHandleForReading
+        let collector = ProcessOutputCollector()
+
+        handle.readabilityHandler = { handle in
+            let chunk = handle.availableData
+            guard !chunk.isEmpty else {
+                handle.readabilityHandler = nil
+                return
+            }
+            collector.append(chunk)
+        }
+        defer {
+            handle.readabilityHandler = nil
+        }
 
         try process.run()
         process.waitUntilExit()
+        let remaining = handle.readDataToEndOfFile()
+        if !remaining.isEmpty {
+            collector.append(remaining)
+        }
 
-        let output = String(
-            data: pipe.fileHandleForReading.readDataToEndOfFile(),
-            encoding: .utf8
-        )?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        let output = collector.stringValue
 
         guard process.terminationStatus == 0 else {
             throw PopletIconError.processFailed(message: failureMessage, output: output)
         }
         return output
+    }
+}
+
+private final class ProcessOutputCollector: @unchecked Sendable {
+    private let lock = NSLock()
+    private var data = Data()
+
+    func append(_ chunk: Data) {
+        lock.lock()
+        data.append(chunk)
+        lock.unlock()
+    }
+
+    var stringValue: String {
+        lock.lock()
+        let snapshot = data
+        lock.unlock()
+        return String(data: snapshot, encoding: .utf8)?
+            .trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+    }
+}
+
+private final class BundleLockHandle {
+    private let fileDescriptor: Int32
+    private var isUnlocked = false
+
+    init(lockURL: URL) throws {
+        let fileDescriptor = open(lockURL.path, O_CREAT | O_RDWR, S_IRUSR | S_IWUSR)
+        guard fileDescriptor >= 0 else {
+            throw POSIXError(POSIXErrorCode(rawValue: errno) ?? .EIO)
+        }
+
+        guard flock(fileDescriptor, LOCK_EX) == 0 else {
+            let lockError = errno
+            close(fileDescriptor)
+            throw POSIXError(POSIXErrorCode(rawValue: lockError) ?? .EIO)
+        }
+
+        self.fileDescriptor = fileDescriptor
+    }
+
+    func unlock() {
+        guard !isUnlocked else { return }
+        isUnlocked = true
+        flock(fileDescriptor, LOCK_UN)
+        close(fileDescriptor)
+    }
+
+    deinit {
+        unlock()
     }
 }
 

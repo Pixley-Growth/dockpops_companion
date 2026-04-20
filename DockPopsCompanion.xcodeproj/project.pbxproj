@@ -15,11 +15,11 @@
 		4B831345F40DB7399938276F /* PopletLiveIconController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 89C5F587BF61758FDCF0F18E /* PopletLiveIconController.swift */; };
 		522B475BD4A8345FCD563F66 /* PopletIconView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9E5D91F351285A8A82DDE96F /* PopletIconView.swift */; };
 		6908134615AD796F0841A477 /* PopletStatus.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9FB099EAF70E6CE380F609A2 /* PopletStatus.swift */; };
-		745285C9C932E60E5F9E762C /* DockPopsPoplet in Resources */ = {isa = PBXBuildFile; fileRef = A000AB7B7C1DF47229EAD909 /* DockPopsPoplet */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 		75E490F62A19AEBFB6AC8490 /* CompanionModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 24E4C8F5283BA21C31D56F7A /* CompanionModel.swift */; };
 		7D83C2E78C7761D79F983827 /* SharedContainerAccess.swift in Sources */ = {isa = PBXBuildFile; fileRef = 875664A21CB29411288F8493 /* SharedContainerAccess.swift */; };
 		7FB0323A1B6139974B5143B7 /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 83E474D160950590CAC11A77 /* ContentView.swift */; };
 		844496DD73404E91584D21A5 /* String+Sanitize.swift in Sources */ = {isa = PBXBuildFile; fileRef = 95546703B8F33259BAB1FF41 /* String+Sanitize.swift */; };
+		90C636A38F6C5EDB659E0890 /* SharedContainerWatcher.swift in Sources */ = {isa = PBXBuildFile; fileRef = 48D2CE5AD0506FA396B69739 /* SharedContainerWatcher.swift */; };
 		94097C71829BB7E5AE919CB7 /* PopletSharedPaths.swift in Sources */ = {isa = PBXBuildFile; fileRef = FAA48AF09EEFA578AAFD41B9 /* PopletSharedPaths.swift */; };
 		A2E7617813CB6D9BB5E1FED3 /* PopRecord.swift in Sources */ = {isa = PBXBuildFile; fileRef = 345CDFCA435429593379F0DB /* PopRecord.swift */; };
 		AC95983D469150E04B919DB8 /* PopletIconRendering.swift in Sources */ = {isa = PBXBuildFile; fileRef = E815062176D2BCF1BD6042D9 /* PopletIconRendering.swift */; };
@@ -48,6 +48,7 @@
 		24E4C8F5283BA21C31D56F7A /* CompanionModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CompanionModel.swift; sourceTree = "<group>"; };
 		345CDFCA435429593379F0DB /* PopRecord.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PopRecord.swift; sourceTree = "<group>"; };
 		3C640986E5669907988DDE94 /* SharedPopStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SharedPopStore.swift; sourceTree = "<group>"; };
+		48D2CE5AD0506FA396B69739 /* SharedContainerWatcher.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SharedContainerWatcher.swift; sourceTree = "<group>"; };
 		5EF045C3A2A683853F67D732 /* AppUpdater.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppUpdater.swift; sourceTree = "<group>"; };
 		6E0FAD21EE14483A19832D5E /* PopletBundleIconHealer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PopletBundleIconHealer.swift; sourceTree = "<group>"; };
 		83E474D160950590CAC11A77 /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
@@ -124,6 +125,7 @@
 				9E29CAE626AADFC4D77D66DE /* DockPopsCompanion-Info.plist */,
 				A1AD5790CB451EC2FA268EAE /* NSImage+CGImage.swift */,
 				875664A21CB29411288F8493 /* SharedContainerAccess.swift */,
+				48D2CE5AD0506FA396B69739 /* SharedContainerWatcher.swift */,
 				95546703B8F33259BAB1FF41 /* String+Sanitize.swift */,
 			);
 			path = Support;
@@ -260,7 +262,6 @@
 			buildActionMask = 2147483647;
 			files = (
 				48D3D75BF1E10FFBBD476C93 /* Assets.xcassets in Resources */,
-				745285C9C932E60E5F9E762C /* DockPopsPoplet in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -277,7 +278,6 @@
 			);
 			inputPaths = (
 				"$(BUILT_PRODUCTS_DIR)/DockPopsPoplet",
-				"$(UNINSTALLED_PRODUCTS_DIR)/$(PLATFORM_NAME)/DockPopsPoplet",
 			);
 			name = "Copy Poplet Support";
 			outputFileListPaths = (
@@ -287,7 +287,7 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
-			shellScript = "set -euo pipefail\nHELPERS_DIR=\"$TARGET_BUILD_DIR/$CONTENTS_FOLDER_PATH/Helpers\"\nPOPLET_SOURCE=\"$BUILT_PRODUCTS_DIR/DockPopsPoplet\"\nARCHIVE_POPLET_SOURCE=\"$UNINSTALLED_PRODUCTS_DIR/$PLATFORM_NAME/DockPopsPoplet\"\nPOPLET_DESTINATION=\"$HELPERS_DIR/DockPopsPoplet\"\nSIGNING_IDENTITY=\"${EXPANDED_CODE_SIGN_IDENTITY:-}\"\nif [ -z \"$SIGNING_IDENTITY\" ]; then\n  SIGNING_IDENTITY=\"Developer ID Application: Applacat LLC (JN6FKBBBYQ)\"\nfi\nif [ -f \"$ARCHIVE_POPLET_SOURCE\" ]; then\n  POPLET_SOURCE=\"$ARCHIVE_POPLET_SOURCE\"\nfi\nmkdir -p \"$HELPERS_DIR\"\ncp \"$POPLET_SOURCE\" \"$POPLET_DESTINATION\"\nchmod +x \"$POPLET_DESTINATION\"\ncodesign --force --sign \"$SIGNING_IDENTITY\" -o runtime --identifier com.dockpops.companion.poplet \"$POPLET_DESTINATION\"\n";
+			shellScript = "set -euo pipefail\nHELPERS_DIR=\"$TARGET_BUILD_DIR/$CONTENTS_FOLDER_PATH/Helpers\"\nPOPLET_SOURCE=\"$BUILT_PRODUCTS_DIR/DockPopsPoplet\"\nPOPLET_DESTINATION=\"$HELPERS_DIR/DockPopsPoplet\"\nSIGNING_IDENTITY=\"${EXPANDED_CODE_SIGN_IDENTITY:-}\"\nif [ -z \"$SIGNING_IDENTITY\" ]; then\n  SIGNING_IDENTITY=\"Developer ID Application: Applacat LLC (JN6FKBBBYQ)\"\nfi\nif [ ! -f \"$POPLET_SOURCE\" ]; then\n  echo \"Poplet source not found at $POPLET_SOURCE\" >&2\n  exit 1\nfi\nmkdir -p \"$HELPERS_DIR\"\n/usr/bin/ditto \"$POPLET_SOURCE\" \"$POPLET_DESTINATION\"\nchmod +x \"$POPLET_DESTINATION\"\n/usr/bin/codesign --remove-signature \"$POPLET_DESTINATION\" >/dev/null 2>&1 || true\n/usr/bin/codesign --force --sign \"$SIGNING_IDENTITY\" --timestamp -o runtime --identifier com.dockpops.companion.poplet \"$POPLET_DESTINATION\"\n";
 		};
 /* End PBXShellScriptBuildPhase section */
 
@@ -308,6 +308,7 @@
 				6908134615AD796F0841A477 /* PopletStatus.swift in Sources */,
 				1C4702B56807196D72287B88 /* PopletSyncService.swift in Sources */,
 				7D83C2E78C7761D79F983827 /* SharedContainerAccess.swift in Sources */,
+				90C636A38F6C5EDB659E0890 /* SharedContainerWatcher.swift in Sources */,
 				3A87B3E2EBA5CDFCA47A15B1 /* SharedPopStore.swift in Sources */,
 				844496DD73404E91584D21A5 /* String+Sanitize.swift in Sources */,
 			);
@@ -374,7 +375,7 @@
 				CODE_SIGN_IDENTITY = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
 				COPY_PHASE_STRIP = NO;
-				CURRENT_PROJECT_VERSION = 2;
+				CURRENT_PROJECT_VERSION = 3;
 				DEAD_CODE_STRIPPING = YES;
 				DEBUG_INFORMATION_FORMAT = dwarf;
 				DEVELOPMENT_TEAM = JN6FKBBBYQ;
@@ -397,7 +398,7 @@
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
 				MACOSX_DEPLOYMENT_TARGET = 14.0;
-				MARKETING_VERSION = 1.0.1;
+				MARKETING_VERSION = 1.0;
 				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
 				MTL_FAST_MATH = YES;
 				ONLY_ACTIVE_ARCH = YES;
@@ -413,6 +414,8 @@
 		84C27B86158E12BE4919D5B4 /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				CODE_SIGNING_ALLOWED = NO;
+				CODE_SIGNING_REQUIRED = NO;
 				CODE_SIGN_INJECT_BASE_ENTITLEMENTS = NO;
 				COMBINE_HIDPI_IMAGES = YES;
 				CREATE_INFOPLIST_SECTION_IN_BINARY = NO;
@@ -465,7 +468,7 @@
 				CODE_SIGN_IDENTITY = "Developer ID Application";
 				CODE_SIGN_STYLE = Manual;
 				COPY_PHASE_STRIP = NO;
-				CURRENT_PROJECT_VERSION = 2;
+				CURRENT_PROJECT_VERSION = 3;
 				DEAD_CODE_STRIPPING = YES;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				DEVELOPMENT_TEAM = JN6FKBBBYQ;
@@ -482,7 +485,7 @@
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
 				MACOSX_DEPLOYMENT_TARGET = 14.0;
-				MARKETING_VERSION = 1.0.1;
+				MARKETING_VERSION = 1.0;
 				MTL_ENABLE_DEBUG_INFO = NO;
 				MTL_FAST_MATH = YES;
 				PRODUCT_NAME = "$(TARGET_NAME)";
@@ -531,6 +534,8 @@
 		F5BF5FC10DFCE89C3A8D0300 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				CODE_SIGNING_ALLOWED = NO;
+				CODE_SIGNING_REQUIRED = NO;
 				CODE_SIGN_INJECT_BASE_ENTITLEMENTS = NO;
 				COMBINE_HIDPI_IMAGES = YES;
 				CREATE_INFOPLIST_SECTION_IN_BINARY = NO;

@@ -3,6 +3,21 @@
     <channel>
         <title>DockPopsCompanion</title>
         <item>
+            <title>1.0</title>
+            <pubDate>Mon, 20 Apr 2026 13:04:56 -0500</pubDate>
+            <link>https://github.com/Pixley-Growth/dockpops_companion/releases/tag/v1.0.0</link>
+            <sparkle:version>3</sparkle:version>
+            <sparkle:shortVersionString>1.0</sparkle:shortVersionString>
+            <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
+            <description sparkle:format="markdown"><![CDATA[## DockPops Companion 1.0
+
+- Dynamic poplet icons now stay in sync more reliably, both for running poplets and for the on-disk app icons Finder and the Dock pick up later.
+- The companion now reacts to shared-container changes automatically, so pop updates do not depend on a dead polling path or a lucky manual refresh.
+- Poplet bundle updates are safer: writes are staged, replacements are cleaner, and bundle-signing work is better guarded against race conditions.
+]]></description>
+            <enclosure url="https://github.com/Pixley-Growth/dockpops_companion/releases/download/v1.0.0/DockPopsCompanion-1.0.dmg" length="8331415" type="application/octet-stream" sparkle:edSignature="HaJ9zNPiydZ0p8bd/sdGzNaWDukcGJxjLbfPAKuh7GEop08IU2qjZXLrGqS5RtIcUTXsXZ15YP55BE+g3e/PCA=="/>
+        </item>
+        <item>
             <title>1.0.1</title>
             <pubDate>Sun, 19 Apr 2026 20:37:02 -0500</pubDate>
             <link>https://github.com/Pixley-Growth/dockpops_companion/releases/tag/v1.0.1</link>
