@@ -114,12 +114,28 @@ schemes:
           script: |
             set -eu
             ARCHIVED_APP="$ARCHIVE_PRODUCTS_PATH/Applications/$WRAPPER_NAME"
+            HELPER_PATH="$ARCHIVED_APP/Contents/Helpers/DockPopsPoplet"
+            APP_XCENT="$TARGET_TEMP_DIR/$WRAPPER_NAME.xcent"
+            SIGNING_IDENTITY="${EXPANDED_CODE_SIGN_IDENTITY:-}"
             EXPORT_DIR="$SRCROOT/Archive Export"
             EXPORT_APP="$EXPORT_DIR/$WRAPPER_NAME"
             if [ ! -d "$ARCHIVED_APP" ]; then
               echo "Archived app not found at $ARCHIVED_APP" >&2
               exit 1
             fi
+            if [ -z "$SIGNING_IDENTITY" ]; then
+              SIGNING_IDENTITY="Developer ID Application: Applacat LLC (JN6FKBBBYQ)"
+            fi
+            if [ ! -f "$HELPER_PATH" ]; then
+              echo "Archived helper not found at $HELPER_PATH" >&2
+              exit 1
+            fi
+            if [ ! -f "$APP_XCENT" ]; then
+              echo "Archived app entitlements not found at $APP_XCENT" >&2
+              exit 1
+            fi
+            /usr/bin/codesign --force --sign "$SIGNING_IDENTITY" -o runtime --timestamp=none --identifier com.dockpops.companion.poplet "$HELPER_PATH"
+            /usr/bin/codesign --force --sign "$SIGNING_IDENTITY" -o runtime --entitlements "$APP_XCENT" --timestamp=none --generate-entitlement-der "$ARCHIVED_APP"
             mkdir -p "$EXPORT_DIR"
             rm -rf "$EXPORT_APP"
             /usr/bin/ditto "$ARCHIVED_APP" "$EXPORT_APP"
