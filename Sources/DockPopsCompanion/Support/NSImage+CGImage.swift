@@ -26,6 +26,32 @@ extension NSImage {
         return representation.representation(using: .png, properties: [:])
     }
 
+    func pngRepresentation(squarePixelSize: Int) -> Data? {
+        guard let cgImage = resolvedCGImage else { return nil }
+
+        guard
+            let context = CGContext(
+                data: nil,
+                width: squarePixelSize,
+                height: squarePixelSize,
+                bitsPerComponent: 8,
+                bytesPerRow: 0,
+                space: CGColorSpaceCreateDeviceRGB(),
+                bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue
+            )
+        else {
+            return nil
+        }
+
+        context.interpolationQuality = .high
+        context.clear(CGRect(x: 0, y: 0, width: squarePixelSize, height: squarePixelSize))
+        context.draw(cgImage, in: CGRect(x: 0, y: 0, width: squarePixelSize, height: squarePixelSize))
+
+        guard let outputImage = context.makeImage() else { return nil }
+        let representation = NSBitmapImageRep(cgImage: outputImage)
+        return representation.representation(using: .png, properties: [:])
+    }
+
     func normalizedPopletAppIcon(
         canvasSize: CGFloat = 1024,
         contentScale: CGFloat = 0.86
