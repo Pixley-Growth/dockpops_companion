@@ -1,12 +1,21 @@
-<?xml version="1.0" encoding="utf-8"?>
-<rss
-  version="2.0"
-  xmlns:sparkle="http://www.andymatuschak.org/xml-namespaces/sparkle"
-  xmlns:dc="http://purl.org/dc/elements/1.1/">
-  <channel>
-    <title>DockPops Companion Updates</title>
-    <link>https://github.com/Pixley-Growth/dockpops_companion/releases</link>
-    <description>Release feed for DockPops Companion.</description>
-    <language>en</language>
-  </channel>
+<?xml version="1.0" standalone="yes"?>
+<rss xmlns:sparkle="http://www.andymatuschak.org/xml-namespaces/sparkle" version="2.0">
+    <channel>
+        <title>DockPopsCompanion</title>
+        <item>
+            <title>1.0.1</title>
+            <pubDate>Sun, 19 Apr 2026 20:37:02 -0500</pubDate>
+            <link>https://github.com/Pixley-Growth/dockpops_companion/releases/tag/v1.0.1</link>
+            <sparkle:version>2</sparkle:version>
+            <sparkle:shortVersionString>1.0.1</sparkle:shortVersionString>
+            <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
+            <description sparkle:format="markdown"><![CDATA[## DockPops Companion 1.0.1
+
+- Added a launch spinner so the app no longer flashes "DockPops not found" before startup finishes.
+- Fixed the oversized window regression so the main window opens at a sane utility size again.
+- Preserved the simpler grid-first layout for dragging Pops into the Dock.
+]]></description>
+            <enclosure url="https://github.com/Pixley-Growth/dockpops_companion/releases/download/v1.0.1/DockPopsCompanion-1.0.1.dmg" length="8279069" type="application/octet-stream" sparkle:edSignature="BfIDTx5FUX1IHx8rNknfCtJWrQIkZy5pUG1TEKaYyetgioMYUIOhXrW+rtjerlZKjT7U8rlD8/w420Zq0gScCQ=="/>
+        </item>
+    </channel>
 </rss>

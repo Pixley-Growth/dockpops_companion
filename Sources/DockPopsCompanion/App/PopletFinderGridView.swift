@@ -6,6 +6,8 @@ struct PopletFinderGridView: NSViewRepresentable {
     let poplets: [PopletStatus]
     @Binding var selection: Set<UUID>
 
+    // MARK: - NSViewRepresentable
+
     func makeCoordinator() -> Coordinator {
         Coordinator(parent: self)
     }
@@ -30,10 +32,10 @@ struct PopletFinderGridView: NSViewRepresentable {
             self.parent = parent
 
             let layout = NSCollectionViewFlowLayout()
-            layout.itemSize = NSSize(width: 112, height: 122)
-            layout.minimumInteritemSpacing = 14
-            layout.minimumLineSpacing = 18
-            layout.sectionInset = NSEdgeInsets(top: 20, left: 20, bottom: 24, right: 20)
+            layout.itemSize = CompanionLayout.Grid.itemSize
+            layout.minimumInteritemSpacing = CompanionLayout.Grid.minimumInteritemSpacing
+            layout.minimumLineSpacing = CompanionLayout.Grid.minimumLineSpacing
+            layout.sectionInset = CompanionLayout.Grid.sectionInsets
 
             let collectionView = NSCollectionView()
             collectionView.collectionViewLayout = layout
@@ -63,10 +65,14 @@ struct PopletFinderGridView: NSViewRepresentable {
             )
         }
 
+        // MARK: - Data Reload
+
         func reloadData() {
             collectionView.reloadData()
             syncSelectionFromSwiftUI()
         }
+
+        // MARK: - NSCollectionViewDataSource
 
         func numberOfSections(in collectionView: NSCollectionView) -> Int {
             1
@@ -99,6 +105,8 @@ struct PopletFinderGridView: NSViewRepresentable {
             )
             return popletItem
         }
+
+        // MARK: - Selection Sync
 
         func collectionView(_ collectionView: NSCollectionView, didSelectItemsAt indexPaths: Set<IndexPath>) {
             syncSelectionToSwiftUI()
@@ -148,6 +156,9 @@ struct PopletFinderGridView: NSViewRepresentable {
             }
         }
 
+        /// SwiftUI remains the source of truth for selection, but AppKit owns the
+        /// live selection set on the collection view. This bridge keeps the two in
+        /// sync without causing redundant deselect/select churn on every update.
         private func syncSelectionFromSwiftUI() {
             let desiredSelection: Set<IndexPath> = Set(
                 parent.poplets.enumerated().compactMap { offset, poplet in
@@ -162,6 +173,8 @@ struct PopletFinderGridView: NSViewRepresentable {
                 collectionView.selectItems(at: desiredSelection, scrollPosition: [])
             }
         }
+
+        // MARK: - Icon Cache
 
         private func icon(for poplet: PopletStatus) -> NSImage {
             let key = poplet.popletURL.path as NSString

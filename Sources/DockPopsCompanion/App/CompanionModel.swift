@@ -5,6 +5,14 @@ import Observation
 @MainActor
 @Observable
 final class CompanionModel {
+    enum ScreenState {
+        case launching
+        case sharedAccess
+        case waitingForMetadata
+        case empty
+        case ready
+    }
+
     var pops: [PopRecord] = []
     var poplets: [PopletStatus] = []
     var stats = SyncStats.zero
@@ -16,10 +24,13 @@ final class CompanionModel {
     var dockPopsFound = false
     var errorDescription: String?
     var lastSync: Date?
+    var hasResolvedInitialLaunchState = false
 
     private let syncService = PopletSyncService()
     @ObservationIgnored private let iconCache = NSCache<NSString, NSImage>()
     private var refreshLoopTask: Task<Void, Never>?
+
+    // MARK: - Presentation
 
     var needsSharedAccessWarmup: Bool {
         dockPopsFound &&
@@ -28,12 +39,32 @@ final class CompanionModel {
         errorDescription == nil
     }
 
+    /// Presentation order matters here.
+    /// Shared-folder recovery must win before metadata/empty states so first launch,
+    /// revoked permission, and missing DockPops installs all funnel through the same
+    /// reconnect surface instead of partially rendering the browser.
+    var screenState: ScreenState {
+        if !hasResolvedInitialLaunchState {
+            return .launching
+        }
+        if !hasSharedFolderAccess {
+            return .sharedAccess
+        }
+        if !metadataAvailable {
+            return .waitingForMetadata
+        }
+        if poplets.isEmpty {
+            return .empty
+        }
+        return .ready
+    }
+
     var statusTitle: String {
         if needsSharedAccessWarmup {
             return "One quick setup step"
         }
         if errorDescription != nil {
-            return "Reconnect DockPops Access"
+            return "Allow DockPops Access"
         }
         if !dockPopsFound {
             return "DockPops not found"
@@ -55,13 +86,13 @@ final class CompanionModel {
             return "Install or launch the App Store build of DockPops so the companion can locate it."
         }
         if needsSharedAccessWarmup {
-            return "The companion needs one-time access to DockPops' shared data folder. When you continue, you'll choose the group.com.dockpops.shared folder once and the companion will remember it for future launches."
+            return "The companion needs one-time access to DockPops' shared data folder. When you continue, that DockPops folder will open already selected, so you can just click Allow."
         }
-        if let errorDescription {
-            return "\(errorDescription) Continue to choose the folder again."
+        if errorDescription != nil {
+            return "The DockPops shared folder will open already selected. Click Allow so this app can reconnect and keep itself in sync."
         }
         if !hasSharedFolderAccess {
-            return "Choose the DockPops shared folder once so this app can keep itself in sync."
+            return "Continue and then click Allow so this app can keep itself in sync."
         }
         if !metadataAvailable {
             return "Make or edit a Pop in DockPops. Pops you create or change there will appear here automatically."
@@ -76,6 +107,8 @@ final class CompanionModel {
         guard let lastSync else { return "Never" }
         return lastSync.formatted(date: .abbreviated, time: .standard)
     }
+
+    // MARK: - Lifecycle
 
     func start() {
         guard refreshLoopTask == nil else { return }
@@ -96,6 +129,8 @@ final class CompanionModel {
         refreshLoopTask?.cancel()
         refreshLoopTask = nil
     }
+
+    // MARK: - Actions
 
     func continueToSharedAccessPrompt() async {
         do {
@@ -123,12 +158,17 @@ final class CompanionModel {
         apply(snapshot)
     }
 
+    // MARK: - Private
+
     private func loadInitialState() async {
+        // Never surprise-prompt on launch. If we already have a valid bookmark,
+        // refresh immediately; otherwise render the warmup screen first.
         if syncService.hasStoredSharedContainerBookmark() {
             await refreshNow()
         } else {
             apply(syncService.startupSnapshot())
         }
+        hasResolvedInitialLaunchState = true
     }
 
     private func apply(_ snapshot: SyncSnapshot) {
@@ -143,6 +183,8 @@ final class CompanionModel {
         errorDescription = snapshot.errorDescription
         lastSync = Date()
     }
+
+    // MARK: - UI Helpers
 
     func openDockPops() {
         guard let url = NSWorkspace.shared.urlForApplication(withBundleIdentifier: AppPaths.dockPopsBundleIdentifier) else {

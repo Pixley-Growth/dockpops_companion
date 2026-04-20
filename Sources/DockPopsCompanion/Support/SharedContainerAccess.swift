@@ -22,13 +22,13 @@ enum SharedContainerAccessError: LocalizedError, Equatable {
     var errorDescription: String? {
         switch self {
         case .permissionRequired:
-            return "Choose DockPops' shared folder so the companion can sync your Pops."
+            return "Allow the DockPops shared folder so the companion can sync your Pops."
         case .userCancelled:
             return "Folder access was cancelled."
         case .invalidSelection:
-            return "Choose the DockPops shared folder named group.com.dockpops.shared."
+            return "The DockPops folder should already be open. If it is not, choose group.com.dockpops.shared and click Allow."
         case .unreadableBookmark:
-            return "The saved DockPops folder permission is no longer valid. Continue to reconnect it."
+            return "The saved DockPops permission needs to be refreshed."
         }
     }
 }
@@ -49,10 +49,15 @@ enum SharedContainerAccess {
     @MainActor
     static func requestAccess() throws -> URL {
         let panel = NSOpenPanel()
+        let expectedURL = AppPaths.expectedGroupContainerURL
+        let opensExactFolder = FileManager.default.fileExists(atPath: expectedURL.path)
+
         panel.title = "Allow DockPops Access"
-        panel.message = "Choose the DockPops shared folder so the companion can sync your Pops and update this window automatically."
-        panel.prompt = "Allow Access"
-        panel.directoryURL = AppPaths.expectedGroupContainerURL.deletingLastPathComponent()
+        panel.message = opensExactFolder
+            ? "The DockPops shared folder is already open. Click Allow so the companion can sync your Pops."
+            : "Choose the DockPops shared folder so the companion can sync your Pops."
+        panel.prompt = "Allow"
+        panel.directoryURL = opensExactFolder ? expectedURL : expectedURL.deletingLastPathComponent()
         panel.canChooseFiles = false
         panel.canChooseDirectories = true
         panel.canCreateDirectories = false

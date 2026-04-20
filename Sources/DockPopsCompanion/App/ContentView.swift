@@ -2,23 +2,65 @@ import AppKit
 import Observation
 import SwiftUI
 
+/// Shared layout metrics for the Companion window.
+/// Keep window sizing, browser sizing, and AppKit grid geometry in one place so
+/// visual tuning stays surgical instead of being spread across multiple files.
+enum CompanionLayout {
+    enum Window {
+        static let launchSize = NSSize(width: 720, height: 460)
+    }
+
+    enum Content {
+        static let outerPadding: CGFloat = 28
+        static let sectionSpacing: CGFloat = 16
+        static let titleSpacing: CGFloat = 8
+        static let guideWidth: CGFloat = 720
+        static let cardPadding: CGFloat = 24
+        static let cardCornerRadius: CGFloat = 24
+    }
+
+    enum Grid {
+        static let assumedColumnCount = 5
+        static let itemSize = NSSize(width: 112, height: 122)
+        static let minimumInteritemSpacing: CGFloat = 14
+        static let minimumLineSpacing: CGFloat = 18
+        static let sectionInsets = NSEdgeInsets(top: 20, left: 20, bottom: 24, right: 20)
+
+        static let maxViewportHeight: CGFloat = 360
+
+        /// The AppKit collection view needs an explicit viewport height in the ready
+        /// state. Leaving it unconstrained lets the window learn an absurd "ideal"
+        /// height, which then gets restored across launches.
+        static func viewportHeight(for itemCount: Int) -> CGFloat {
+            let rowCount = max(1, Int(ceil(Double(itemCount) / Double(assumedColumnCount))))
+            let contentHeight = CGFloat(rowCount) * itemSize.height
+            let spacingHeight = CGFloat(max(0, rowCount - 1)) * minimumLineSpacing
+            let insetsHeight = sectionInsets.top + sectionInsets.bottom
+            return min(maxViewportHeight, contentHeight + spacingHeight + insetsHeight)
+        }
+    }
+}
+
 struct ContentView: View {
     @Bindable var model: CompanionModel
     @State private var selectedPopletIDs: Set<UUID> = []
 
     var body: some View {
         Group {
-            if !model.hasSharedFolderAccess {
+            switch model.screenState {
+            case .launching:
+                launchStateView
+            case .sharedAccess:
                 connectStateView
-            } else if !model.metadataAvailable {
+            case .waitingForMetadata:
                 waitingForDockPopsStateView
-            } else if model.poplets.isEmpty {
+            case .empty:
                 emptyPopsStateView
-            } else {
-                popletsGridView
+            case .ready:
+                readyPopletsStateView
             }
         }
-        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+        .frame(maxWidth: .infinity, alignment: .top)
         .modifier(WindowSurfaceModifier())
         .task {
             model.start()
@@ -28,168 +70,45 @@ struct ContentView: View {
         }
         .toolbar {
             ToolbarItemGroup(placement: .primaryAction) {
-                Button(primaryActionTitle) {
-                    Task {
-                        await runPrimaryAction()
-                    }
-                }
-                .disabled(model.isRefreshing || primaryActionDisabled)
-
                 if model.hasSharedFolderAccess {
-                    Button("Reveal Folder") {
-                        model.revealPopletsFolder()
+                    Button(primaryActionTitle) {
+                        Task {
+                            await runPrimaryAction()
+                        }
                     }
+                    .disabled(model.isRefreshing || primaryActionDisabled)
                 }
             }
         }
     }
 
-    private var popletsGridView: some View {
-        VStack(spacing: 18) {
-            WorkflowGuideView()
-                .frame(maxWidth: 720)
-
-            browserShell
-                .frame(maxWidth: 560, maxHeight: .infinity, alignment: .top)
-        }
-        .padding(24)
-        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
-        .onChange(of: model.poplets.map(\.id)) { _, ids in
-            let validIDs = Set(ids)
-            selectedPopletIDs = selectedPopletIDs.intersection(validIDs)
-        }
-    }
-
-    private var browserShell: some View {
-        VStack(spacing: 0) {
-            browserHeader
-
-            Divider()
-
-            PopletFinderGridView(
-                poplets: model.poplets,
-                selection: $selectedPopletIDs
-            )
-            .frame(maxWidth: .infinity, maxHeight: .infinity)
-            .background(
-                RoundedRectangle(cornerRadius: 0, style: .continuous)
-                    .fill(Color(nsColor: .controlBackgroundColor).opacity(0.4))
-            )
-        }
-        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 24, style: .continuous))
-        .overlay(
-            RoundedRectangle(cornerRadius: 24, style: .continuous)
-                .strokeBorder(.white.opacity(0.08))
-        )
-        .clipShape(RoundedRectangle(cornerRadius: 24, style: .continuous))
-    }
-
-    private var browserHeader: some View {
-        HStack(alignment: .top, spacing: 14) {
-            Image(systemName: "square.grid.3x3.fill")
-                .font(.system(size: 22, weight: .semibold))
-                .foregroundStyle(Color.accentColor)
-                .frame(width: 32, height: 32)
-
-            VStack(alignment: .leading, spacing: 6) {
-                Text("Multipops Companion")
-                    .font(.headline.weight(.semibold))
-
-                Text(browserHintText)
-                    .font(.subheadline)
-                    .foregroundStyle(.secondary)
+    private var readyPopletsStateView: some View {
+        ReadyPopletsStateView(poplets: model.poplets, selection: $selectedPopletIDs)
+            .onChange(of: model.poplets.map(\.id)) { _, ids in
+                let validIDs = Set(ids)
+                selectedPopletIDs = selectedPopletIDs.intersection(validIDs)
             }
-
-            Spacer(minLength: 16)
-
-            VStack(alignment: .trailing, spacing: 10) {
-                Text(browserSelectionText)
-                    .font(.subheadline.weight(.medium))
-                    .foregroundStyle(.secondary)
-
-                Button("Reveal in Finder") {
-                    model.revealPopletsFolder()
-                }
-                .buttonStyle(.borderedProminent)
-                .controlSize(.small)
-            }
-        }
-        .padding(18)
     }
 
-    private var visibleSelection: Set<UUID> {
-        let validIDs = Set(model.poplets.map(\.id))
-        return selectedPopletIDs.intersection(validIDs)
-    }
-
-    private var browserSelectionText: String {
-        let selectedCount = visibleSelection.count
-        if selectedCount > 0 {
-            return "\(selectedCount) selected"
-        }
-        return "\(model.poplets.count) ready"
-    }
-
-    private var browserHintText: String {
-        let selectedCount = visibleSelection.count
-        if selectedCount > 0 {
-            return "Drag the selected Pops into the Dock. Anything you add or change in DockPops will show up here automatically."
-        }
-        return "Make or edit Pops in DockPops, then drag them into the Dock here. Command-click selects multiple Pops."
+    private var launchStateView: some View {
+        LaunchStateView()
     }
 
     private var connectStateView: some View {
-        setupStateView(
+        SharedAccessStateView(
             title: model.statusTitle,
-            systemImage: "hand.raised.square",
-            message: model.statusMessage
-        ) {
-            Button(sharedAccessActionTitle) {
+            message: model.statusMessage,
+            actionTitle: sharedAccessActionTitle,
+            dockPopsFound: model.dockPopsFound,
+            onPrimaryAction: {
                 Task {
                     await runPrimaryAction()
                 }
+            },
+            onOpenDockPops: {
+                model.openDockPops()
             }
-            .buttonStyle(.borderedProminent)
-
-            if model.dockPopsFound {
-                Button("Open DockPops") {
-                    model.openDockPops()
-                }
-                .buttonStyle(.bordered)
-            }
-
-            if model.dockPopsFound {
-                WorkflowGuideView(showsFolderGrantStep: true, emphasizesDockDrop: false)
-                    .frame(maxWidth: 720)
-                    .padding(.top, 8)
-            }
-        }
-    }
-
-    private var primaryActionTitle: String {
-        if !model.hasSharedFolderAccess && model.dockPopsFound {
-            return sharedAccessActionTitle
-        }
-        return model.isRefreshing ? "Refreshing…" : "Refresh"
-    }
-
-    private var sharedAccessActionTitle: String {
-        if model.needsSharedAccessWarmup {
-            return "Continue"
-        }
-        return "Choose Folder Again"
-    }
-
-    private var primaryActionDisabled: Bool {
-        false
-    }
-
-    private func runPrimaryAction() async {
-        if !model.hasSharedFolderAccess && model.dockPopsFound {
-            await model.continueToSharedAccessPrompt()
-        } else {
-            await model.refreshNow()
-        }
+        )
     }
 
     private var waitingForDockPopsStateView: some View {
@@ -212,7 +131,7 @@ struct ContentView: View {
             .buttonStyle(.bordered)
 
             WorkflowGuideView(emphasizesDockDrop: false)
-                .frame(maxWidth: 720)
+                .frame(maxWidth: CompanionLayout.Content.guideWidth)
                 .padding(.top, 8)
         }
     }
@@ -235,8 +154,28 @@ struct ContentView: View {
             .buttonStyle(.bordered)
 
             WorkflowGuideView(emphasizesDockDrop: false)
-                .frame(maxWidth: 720)
+                .frame(maxWidth: CompanionLayout.Content.guideWidth)
                 .padding(.top, 8)
+        }
+    }
+
+    private var primaryActionTitle: String {
+        model.isRefreshing ? "Refreshing…" : "Refresh"
+    }
+
+    private var sharedAccessActionTitle: String {
+        model.needsSharedAccessWarmup ? "Continue" : "Allow Access"
+    }
+
+    private var primaryActionDisabled: Bool {
+        false
+    }
+
+    private func runPrimaryAction() async {
+        if !model.hasSharedFolderAccess && model.dockPopsFound {
+            await model.continueToSharedAccessPrompt()
+        } else {
+            await model.refreshNow()
         }
     }
 
@@ -256,47 +195,184 @@ struct ContentView: View {
     }
 }
 
+private struct ReadyPopletsStateView: View {
+    let poplets: [PopletStatus]
+    @Binding var selection: Set<UUID>
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: CompanionLayout.Content.sectionSpacing) {
+            CompanionTitleBlock(
+                title: "DockPops Companion",
+                message: "You can drag as many of the icons below to your Dock. Any changes or Pops you add on the main app will show up here."
+            )
+
+            PopletFinderGridView(poplets: poplets, selection: $selection)
+                .frame(
+                    maxWidth: .infinity,
+                    minHeight: CompanionLayout.Grid.viewportHeight(for: poplets.count),
+                    maxHeight: CompanionLayout.Grid.viewportHeight(for: poplets.count),
+                    alignment: .topLeading
+                )
+        }
+        .padding(CompanionLayout.Content.outerPadding)
+        .frame(maxWidth: .infinity, alignment: .topLeading)
+    }
+}
+
+private struct LaunchStateView: View {
+    var body: some View {
+        VStack(spacing: 14) {
+            ProgressView()
+                .controlSize(.large)
+
+            Text("Looking for DockPops…")
+                .font(.headline)
+                .foregroundStyle(.secondary)
+        }
+        .frame(maxWidth: .infinity, minHeight: 220)
+        .padding(CompanionLayout.Content.outerPadding)
+    }
+}
+
+private struct SharedAccessStateView: View {
+    let title: String
+    let message: String
+    let actionTitle: String
+    let dockPopsFound: Bool
+    let onPrimaryAction: () -> Void
+    let onOpenDockPops: () -> Void
+
+    var body: some View {
+        VStack(spacing: 24) {
+            Spacer(minLength: 28)
+
+            Image(systemName: "hand.raised.square")
+                .font(.system(size: 54, weight: .semibold))
+                .foregroundStyle(Color.accentColor)
+                .frame(width: 92, height: 92)
+                .background(
+                    Color.accentColor.opacity(0.12),
+                    in: RoundedRectangle(cornerRadius: 28, style: .continuous)
+                )
+
+            VStack(spacing: 12) {
+                Text(title)
+                    .font(.system(size: 26, weight: .bold))
+                    .multilineTextAlignment(.center)
+
+                Text(message)
+                    .font(.title3)
+                    .foregroundStyle(.secondary)
+                    .multilineTextAlignment(.center)
+            }
+            .frame(maxWidth: 700)
+
+            HStack(spacing: 12) {
+                Button(actionTitle, action: onPrimaryAction)
+                    .buttonStyle(.borderedProminent)
+
+                if dockPopsFound {
+                    Button("Open DockPops", action: onOpenDockPops)
+                        .buttonStyle(.bordered)
+                }
+            }
+
+            if dockPopsFound {
+                WorkflowGuideView(showsAccessStep: true, emphasizesDockDrop: false)
+                    .frame(maxWidth: CompanionLayout.Content.guideWidth)
+                    .padding(.top, 8)
+            }
+
+            Spacer(minLength: 20)
+        }
+        .padding(CompanionLayout.Content.outerPadding)
+        .frame(maxWidth: .infinity)
+    }
+}
+
+private struct CompanionTitleBlock: View {
+    let title: String
+    let message: String
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: CompanionLayout.Content.titleSpacing) {
+            Text(title)
+                .font(.system(size: 32, weight: .bold))
+
+            Text(message)
+                .font(.title3)
+                .foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+    }
+}
+
+private struct CompanionSurfaceCard<Content: View>: View {
+    @ViewBuilder var content: Content
+
+    var body: some View {
+        content
+            .background(
+                .regularMaterial,
+                in: RoundedRectangle(
+                    cornerRadius: CompanionLayout.Content.cardCornerRadius,
+                    style: .continuous
+                )
+            )
+            .overlay(
+                RoundedRectangle(
+                    cornerRadius: CompanionLayout.Content.cardCornerRadius,
+                    style: .continuous
+                )
+                .strokeBorder(.white.opacity(0.08))
+            )
+            .clipShape(
+                RoundedRectangle(
+                    cornerRadius: CompanionLayout.Content.cardCornerRadius,
+                    style: .continuous
+                )
+            )
+    }
+}
+
 private struct WorkflowGuideView: View {
-    var showsFolderGrantStep = false
+    var showsAccessStep = false
     var emphasizesDockDrop = true
 
     var body: some View {
-        HStack(alignment: .center, spacing: 14) {
-            if showsFolderGrantStep {
+        CompanionSurfaceCard {
+            HStack(alignment: .center, spacing: 14) {
+                if showsAccessStep {
+                    GuideStepCard(
+                        symbol: "folder.fill",
+                        title: "Open and Allow",
+                        detail: "The DockPops folder opens already selected, so you can just click Allow."
+                    )
+
+                    GuideArrow()
+                }
+
                 GuideStepCard(
-                    symbol: "folder.fill",
-                    title: "Choose Folder Once",
-                    detail: "We remember DockPops' shared folder for future launches."
+                    symbol: "app.fill",
+                    title: "Make or Edit Pops",
+                    detail: "Anything you create or modify in DockPops appears here automatically."
                 )
 
                 GuideArrow()
+
+                GuideStepCard(
+                    symbol: "square.grid.2x2.fill",
+                    title: "They Show Up Here",
+                    detail: "This window refreshes with the latest Poplets from DockPops."
+                )
+
+                GuideArrow()
+
+                DockDropCard(emphasized: emphasizesDockDrop)
             }
-
-            GuideStepCard(
-                symbol: "app.fill",
-                title: "Make or Edit Pops",
-                detail: "Anything you create or modify in DockPops appears here automatically."
-            )
-
-            GuideArrow()
-
-            GuideStepCard(
-                symbol: "square.grid.2x2.fill",
-                title: "They Show Up Here",
-                detail: "This window refreshes with the latest Poplets from DockPops."
-            )
-
-            GuideArrow()
-
-            DockDropCard(emphasized: emphasizesDockDrop)
+            .padding(18)
+            .frame(maxWidth: .infinity, alignment: .leading)
         }
-        .padding(18)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 24, style: .continuous))
-        .overlay(
-            RoundedRectangle(cornerRadius: 24, style: .continuous)
-                .strokeBorder(.white.opacity(0.08))
-        )
     }
 }
 
@@ -311,7 +387,10 @@ private struct GuideStepCard: View {
                 .font(.system(size: 22, weight: .semibold))
                 .foregroundStyle(Color.accentColor)
                 .frame(width: 36, height: 36)
-                .background(Color.accentColor.opacity(0.12), in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+                .background(
+                    Color.accentColor.opacity(0.12),
+                    in: RoundedRectangle(cornerRadius: 12, style: .continuous)
+                )
 
             Text(title)
                 .font(.headline.weight(.semibold))
@@ -379,7 +458,8 @@ private struct DockDropCard: View {
             Text("Drag to the Dock")
                 .font(.headline.weight(.semibold))
 
-            Text(emphasized
+            Text(
+                emphasized
                 ? "Pick any Poplet here and drag it straight into the Dock to pin it."
                 : "When your Pops show up here, drag the Poplets you want into the Dock."
             )
