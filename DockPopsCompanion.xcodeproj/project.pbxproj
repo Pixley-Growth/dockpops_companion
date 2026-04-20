@@ -12,6 +12,7 @@
 		34EF176D0E128B6D1110F1E9 /* DockPopsPopletMain.swift in Sources */ = {isa = PBXBuildFile; fileRef = 855BDB0B404A9C60D9007DB4 /* DockPopsPopletMain.swift */; };
 		3A87B3E2EBA5CDFCA47A15B1 /* SharedPopStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3C640986E5669907988DDE94 /* SharedPopStore.swift */; };
 		48D3D75BF1E10FFBBD476C93 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = FCF0E9127F3C44E81B14B3B3 /* Assets.xcassets */; };
+		4B831345F40DB7399938276F /* PopletLiveIconController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 89C5F587BF61758FDCF0F18E /* PopletLiveIconController.swift */; };
 		522B475BD4A8345FCD563F66 /* PopletIconView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9E5D91F351285A8A82DDE96F /* PopletIconView.swift */; };
 		6908134615AD796F0841A477 /* PopletStatus.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9FB099EAF70E6CE380F609A2 /* PopletStatus.swift */; };
 		745285C9C932E60E5F9E762C /* DockPopsPoplet in Resources */ = {isa = PBXBuildFile; fileRef = A000AB7B7C1DF47229EAD909 /* DockPopsPoplet */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
@@ -19,7 +20,10 @@
 		7D83C2E78C7761D79F983827 /* SharedContainerAccess.swift in Sources */ = {isa = PBXBuildFile; fileRef = 875664A21CB29411288F8493 /* SharedContainerAccess.swift */; };
 		7FB0323A1B6139974B5143B7 /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 83E474D160950590CAC11A77 /* ContentView.swift */; };
 		844496DD73404E91584D21A5 /* String+Sanitize.swift in Sources */ = {isa = PBXBuildFile; fileRef = 95546703B8F33259BAB1FF41 /* String+Sanitize.swift */; };
+		94097C71829BB7E5AE919CB7 /* PopletSharedPaths.swift in Sources */ = {isa = PBXBuildFile; fileRef = FAA48AF09EEFA578AAFD41B9 /* PopletSharedPaths.swift */; };
 		A2E7617813CB6D9BB5E1FED3 /* PopRecord.swift in Sources */ = {isa = PBXBuildFile; fileRef = 345CDFCA435429593379F0DB /* PopRecord.swift */; };
+		AC95983D469150E04B919DB8 /* PopletIconRendering.swift in Sources */ = {isa = PBXBuildFile; fileRef = E815062176D2BCF1BD6042D9 /* PopletIconRendering.swift */; };
+		D85CCD8872DF163BEBC2ABFB /* PopletBundleIconHealer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6E0FAD21EE14483A19832D5E /* PopletBundleIconHealer.swift */; };
 		E1D5204DE49BF4E910CA8FA2 /* Sparkle in Frameworks */ = {isa = PBXBuildFile; productRef = 7541306F6443D5BDE5F85796 /* Sparkle */; };
 		F45836CB7FFE7C180D8EB075 /* PopletFinderGridView.swift in Sources */ = {isa = PBXBuildFile; fileRef = CD77AE508B49686CDE6E5EB0 /* PopletFinderGridView.swift */; };
 		F73971345169814F18753717 /* DockPopsCompanionApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1360089843F05BCCB40C7514 /* DockPopsCompanionApp.swift */; };
@@ -45,16 +49,21 @@
 		345CDFCA435429593379F0DB /* PopRecord.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PopRecord.swift; sourceTree = "<group>"; };
 		3C640986E5669907988DDE94 /* SharedPopStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SharedPopStore.swift; sourceTree = "<group>"; };
 		5EF045C3A2A683853F67D732 /* AppUpdater.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppUpdater.swift; sourceTree = "<group>"; };
+		6E0FAD21EE14483A19832D5E /* PopletBundleIconHealer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PopletBundleIconHealer.swift; sourceTree = "<group>"; };
 		83E474D160950590CAC11A77 /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
 		855BDB0B404A9C60D9007DB4 /* DockPopsPopletMain.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DockPopsPopletMain.swift; sourceTree = "<group>"; };
 		875664A21CB29411288F8493 /* SharedContainerAccess.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SharedContainerAccess.swift; sourceTree = "<group>"; };
+		89C5F587BF61758FDCF0F18E /* PopletLiveIconController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PopletLiveIconController.swift; sourceTree = "<group>"; };
 		95546703B8F33259BAB1FF41 /* String+Sanitize.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "String+Sanitize.swift"; sourceTree = "<group>"; };
+		9E29CAE626AADFC4D77D66DE /* DockPopsCompanion-Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = "DockPopsCompanion-Info.plist"; sourceTree = "<group>"; };
 		9E5D91F351285A8A82DDE96F /* PopletIconView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PopletIconView.swift; sourceTree = "<group>"; };
 		9FB099EAF70E6CE380F609A2 /* PopletStatus.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PopletStatus.swift; sourceTree = "<group>"; };
 		A000AB7B7C1DF47229EAD909 /* DockPopsPoplet */ = {isa = PBXFileReference; includeInIndex = 0; path = DockPopsPoplet; sourceTree = BUILT_PRODUCTS_DIR; };
 		A1AD5790CB451EC2FA268EAE /* NSImage+CGImage.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "NSImage+CGImage.swift"; sourceTree = "<group>"; };
 		CC4259405605AAC63B187981 /* PopletSyncService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PopletSyncService.swift; sourceTree = "<group>"; };
 		CD77AE508B49686CDE6E5EB0 /* PopletFinderGridView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PopletFinderGridView.swift; sourceTree = "<group>"; };
+		E815062176D2BCF1BD6042D9 /* PopletIconRendering.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PopletIconRendering.swift; sourceTree = "<group>"; };
+		FAA48AF09EEFA578AAFD41B9 /* PopletSharedPaths.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PopletSharedPaths.swift; sourceTree = "<group>"; };
 		FCF0E9127F3C44E81B14B3B3 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
@@ -112,6 +121,7 @@
 			isa = PBXGroup;
 			children = (
 				14D29D7CE73BDD718831BD30 /* AppPaths.swift */,
+				9E29CAE626AADFC4D77D66DE /* DockPopsCompanion-Info.plist */,
 				A1AD5790CB451EC2FA268EAE /* NSImage+CGImage.swift */,
 				875664A21CB29411288F8493 /* SharedContainerAccess.swift */,
 				95546703B8F33259BAB1FF41 /* String+Sanitize.swift */,
@@ -154,6 +164,10 @@
 			isa = PBXGroup;
 			children = (
 				855BDB0B404A9C60D9007DB4 /* DockPopsPopletMain.swift */,
+				6E0FAD21EE14483A19832D5E /* PopletBundleIconHealer.swift */,
+				E815062176D2BCF1BD6042D9 /* PopletIconRendering.swift */,
+				89C5F587BF61758FDCF0F18E /* PopletLiveIconController.swift */,
+				FAA48AF09EEFA578AAFD41B9 /* PopletSharedPaths.swift */,
 			);
 			path = DockPopsPoplet;
 			sourceTree = "<group>";
@@ -304,6 +318,10 @@
 			buildActionMask = 2147483647;
 			files = (
 				34EF176D0E128B6D1110F1E9 /* DockPopsPopletMain.swift in Sources */,
+				D85CCD8872DF163BEBC2ABFB /* PopletBundleIconHealer.swift in Sources */,
+				AC95983D469150E04B919DB8 /* PopletIconRendering.swift in Sources */,
+				4B831345F40DB7399938276F /* PopletLiveIconController.swift in Sources */,
+				94097C71829BB7E5AE919CB7 /* PopletSharedPaths.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

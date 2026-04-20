@@ -17,15 +17,40 @@ enum DockPopsPopletMain {
 @MainActor
 private final class DockPopsPopletDelegate: NSObject, NSApplicationDelegate {
     private let rawPopID = (Bundle.main.infoDictionary?["DockPopsTargetPopID"] as? String) ?? ""
+    private var liveIconController: PopletLiveIconController?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
-        guard UUID(uuidString: rawPopID) != nil else {
+        guard let popID = UUID(uuidString: rawPopID) else {
             NSApp.terminate(nil)
             return
         }
 
         installMenu()
+
+        // Method B — mirror the shared pop composite onto the running app's
+        // Dock tile via NSApp.applicationIconImage. Never touches the bundle
+        // on disk, so it cannot invalidate the bundle signature.
+        let live = PopletLiveIconController(popID: popID)
+        live.start()
+        liveIconController = live
+
+        // Method C1 — if the on-disk AppIcon.icns is older than the shared
+        // source PNG, rebuild it, re-sign the bundle, and nudge Launch
+        // Services so Finder / Dock-at-rest pick up the fresh icon. Runs
+        // detached so a slow iconutil/codesign doesn't delay openPop().
+        let healer = PopletBundleIconHealer(
+            popID: popID,
+            bundleURL: Bundle.main.bundleURL
+        )
+        Task.detached(priority: .utility) {
+            await healer.healIfStale()
+        }
+
         openPop()
+    }
+
+    func applicationWillTerminate(_ notification: Notification) {
+        liveIconController?.stop()
     }
 
     func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool) -> Bool {
