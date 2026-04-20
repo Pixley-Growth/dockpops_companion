@@ -198,14 +198,42 @@ final class CompanionModel {
     }
 
     func icon(for poplet: PopletStatus) -> NSImage {
-        let key = poplet.popletURL.path as NSString
+        let key = iconCacheKey(for: poplet)
         if let cached = iconCache.object(forKey: key) {
             return cached
         }
 
-        let image = NSWorkspace.shared.icon(forFile: poplet.popletURL.path)
+        let image = loadIconImage(for: poplet)
         image.size = NSSize(width: 256, height: 256)
         iconCache.setObject(image, forKey: key)
         return image
+    }
+
+    private func iconCacheKey(for poplet: PopletStatus) -> NSString {
+        let iconURL = poplet.popletURL
+            .appending(path: "Contents", directoryHint: .isDirectory)
+            .appending(path: "Resources", directoryHint: .isDirectory)
+            .appending(path: "AppIcon.icns")
+
+        if let values = try? iconURL.resourceValues(forKeys: [.contentModificationDateKey, .fileSizeKey]) {
+            let timestamp = values.contentModificationDate?.timeIntervalSinceReferenceDate ?? 0
+            let size = values.fileSize ?? 0
+            return "\(poplet.popletURL.path)#\(timestamp)#\(size)" as NSString
+        }
+
+        return poplet.popletURL.path as NSString
+    }
+
+    private func loadIconImage(for poplet: PopletStatus) -> NSImage {
+        let iconURL = poplet.popletURL
+            .appending(path: "Contents", directoryHint: .isDirectory)
+            .appending(path: "Resources", directoryHint: .isDirectory)
+            .appending(path: "AppIcon.icns")
+
+        if let image = NSImage(contentsOf: iconURL) {
+            return image
+        }
+
+        return NSWorkspace.shared.icon(forFile: poplet.popletURL.path)
     }
 }
