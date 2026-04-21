@@ -7,6 +7,11 @@ import os
 final class PopletSyncService {
     private static let logger = Logger(subsystem: "com.dockpops.companion", category: "PopletSync")
     private static let popletAppIconName = "AppIcon"
+    /// Bump when the poplet icon rendering recipe changes even if the source
+    /// PopIcons PNG does not. This forces unopened poplets onto a fresh bundle
+    /// version so Dock/Finder stop serving stale cached icons.
+    private static let popletIconRecipeVersion = 3
+    private static let popletIconRecipeVersionInfoKey = "DockPopsIconRecipeVersion"
     private static let launchServicesRegisterPath =
         "/System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/LaunchServices.framework/Support/lsregister"
 
@@ -346,6 +351,7 @@ final class PopletSyncService {
                 "CFBundleVersion": resolvedIcon.bundleVersion,
                 "LSMinimumSystemVersion": "14.0",
                 "NSPrincipalClass": "NSApplication",
+                Self.popletIconRecipeVersionInfoKey: Self.popletIconRecipeVersion,
                 "DockPopsTargetPopID": pop.id.uuidString,
             ]
             if iconData != nil {
@@ -570,6 +576,12 @@ final class PopletSyncService {
     /// regenerated poplet has a new AppIcon.icns on disk, nudge the workspace so
     /// visible surfaces have a chance to pick up the fresh icon immediately.
     private func refreshWorkspaceViews(for bundleURL: URL) {
+        let resourcesURL = bundleURL
+            .appending(path: "Contents", directoryHint: .isDirectory)
+            .appending(path: "Resources", directoryHint: .isDirectory)
+        let iconURL = resourcesURL.appending(path: "\(Self.popletAppIconName).icns")
+        NSWorkspace.shared.noteFileSystemChanged(iconURL.path)
+        NSWorkspace.shared.noteFileSystemChanged(resourcesURL.path)
         NSWorkspace.shared.noteFileSystemChanged(bundleURL.path)
         NSWorkspace.shared.noteFileSystemChanged(AppPaths.popletsDirectoryURL.path)
         registerWithLaunchServices(bundleURL: bundleURL)
@@ -599,7 +611,7 @@ final class PopletSyncService {
     }
 
     private func bundleVersionForPopComposite(at url: URL, baseBuildVersion: String) -> String {
-        let fallbackVersion = baseBuildVersion
+        let fallbackVersion = "\(baseBuildVersion).\(Self.popletIconRecipeVersion)"
         guard
             let resourceValues = try? url.resourceValues(forKeys: [.contentModificationDateKey]),
             let modificationDate = resourceValues.contentModificationDate
@@ -608,7 +620,7 @@ final class PopletSyncService {
         }
 
         let timestamp = max(1, Int(modificationDate.timeIntervalSince1970))
-        return "\(baseBuildVersion).\(timestamp)"
+        return "\(baseBuildVersion).\(Self.popletIconRecipeVersion).\(timestamp)"
     }
 
     private func installGeneratedPopletBundle(at stagingURL: URL, destinationURL: URL) throws {

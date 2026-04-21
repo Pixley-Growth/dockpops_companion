@@ -240,12 +240,6 @@ private final class PopletCollectionItem: NSCollectionViewItem {
         self.imageView = iconView
 
         iconHolder.translatesAutoresizingMaskIntoConstraints = false
-        iconHolder.wantsLayer = true
-        iconHolder.layer?.cornerRadius = 12
-        iconHolder.layer?.cornerCurve = .continuous
-        iconHolder.layer?.borderWidth = 1
-        iconHolder.layer?.borderColor = NSColor.white.withAlphaComponent(0.18).cgColor
-        iconHolder.layer?.backgroundColor = NSColor.white.withAlphaComponent(0.05).cgColor
 
         titleField.translatesAutoresizingMaskIntoConstraints = false
         titleField.font = .systemFont(ofSize: 12, weight: .semibold)
@@ -268,13 +262,13 @@ private final class PopletCollectionItem: NSCollectionViewItem {
         NSLayoutConstraint.activate([
             iconHolder.topAnchor.constraint(equalTo: view.topAnchor, constant: 8),
             iconHolder.centerXAnchor.constraint(equalTo: view.centerXAnchor),
-            iconHolder.widthAnchor.constraint(equalToConstant: 72),
-            iconHolder.heightAnchor.constraint(equalToConstant: 72),
+            iconHolder.widthAnchor.constraint(equalToConstant: 76),
+            iconHolder.heightAnchor.constraint(equalToConstant: 76),
 
             iconView.centerXAnchor.constraint(equalTo: iconHolder.centerXAnchor),
             iconView.centerYAnchor.constraint(equalTo: iconHolder.centerYAnchor),
-            iconView.widthAnchor.constraint(equalToConstant: 56),
-            iconView.heightAnchor.constraint(equalToConstant: 56),
+            iconView.widthAnchor.constraint(equalToConstant: 64),
+            iconView.heightAnchor.constraint(equalToConstant: 64),
 
             titleField.topAnchor.constraint(equalTo: iconHolder.bottomAnchor, constant: 10),
             titleField.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 6),

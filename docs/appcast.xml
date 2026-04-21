@@ -15,7 +15,7 @@
 - The companion now reacts to shared-container changes automatically, so pop updates do not depend on a dead polling path or a lucky manual refresh.
 - Poplet bundle updates are safer: writes are staged, replacements are cleaner, and bundle-signing work is better guarded against race conditions.
 ]]></description>
-            <enclosure url="https://github.com/Pixley-Growth/dockpops_companion/releases/download/v1.0.0/DockPopsCompanion-1.0.dmg" length="8214937" type="application/octet-stream" sparkle:edSignature="nGC3sYEW2KskQA/V5WuncjvkWQDlWPPjb2zNTzsTI3Hz6iYaMGL/HhEnZJXEoJbdZSVolindHGzB6neWA5jTBQ=="/>
+            <enclosure url="https://github.com/Pixley-Growth/dockpops_companion/releases/download/v1.0.0/DockPopsCompanion-1.0.dmg" length="8220891" type="application/octet-stream" sparkle:edSignature="0jObAlipeWrBWoBrm4HwxGvSGpt5DxQ6uFTn/7rHl1Jh07ID+SsG70VoaDIq6OM+DpxYLbwDOeNCbM4+ptSLCA=="/>
         </item>
         <item>
             <title>1.0.1</title>

@@ -4,12 +4,10 @@ import ImageIO
 import UniformTypeIdentifiers
 
 /// Image-pipeline helpers shared by the live Dock tile path and the on-disk
-/// ICNS healer. Both need to resize and normalize the raw pop composite so the
-/// live tile and the baked bundle icon stay visually identical.
+/// ICNS healer. The shared `PopIcons` PNG is already the final composed app
+/// icon art, but it still needs a transparent presentation margin so the live
+/// Dock tile and baked ICNS match the intended app-icon size.
 enum PopletIconRendering {
-    /// Matches the margin the companion applies when baking the original ICNS
-    /// (`NSImage.normalizedPopletAppIcon`). Keeping these in sync means the
-    /// running tile and the at-rest Finder icon look the same.
     static let canvasSize: Int = 1024
     static let contentScale: CGFloat = 0.86
 
@@ -18,8 +16,11 @@ enum PopletIconRendering {
         return CGImageSourceCreateImageAtIndex(source, 0, nil)
     }
 
-    /// Produces a 1024x1024 canvas with the source centered and inset so the
-    /// composite matches the margin used by the companion's baked ICNS.
+    static func loadImage(from data: Data) -> CGImage? {
+        guard let source = CGImageSourceCreateWithData(data as CFData, nil) else { return nil }
+        return CGImageSourceCreateImageAtIndex(source, 0, nil)
+    }
+
     static func normalizedCanvas(from source: CGImage) -> CGImage? {
         let canvas = CGFloat(canvasSize)
         let inset = (canvas - (canvas * contentScale)) / 2

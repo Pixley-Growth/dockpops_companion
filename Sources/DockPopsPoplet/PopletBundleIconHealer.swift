@@ -16,6 +16,8 @@ struct PopletBundleIconHealer: Sendable {
         category: "IconHealer"
     )
     private static let iconName = "AppIcon"
+    private static let iconRecipeVersion = 3
+    private static let iconRecipeVersionInfoKey = "DockPopsIconRecipeVersion"
     private static let iconVariants: [(name: String, pixelSize: Int)] = [
         ("icon_16x16.png", 16),
         ("icon_16x16@2x.png", 32),
@@ -67,6 +69,9 @@ struct PopletBundleIconHealer: Sendable {
 
     private func sourceIsNewer(source: URL, target: URL) throws -> Bool {
         guard FileManager.default.fileExists(atPath: target.path) else { return true }
+        if storedIconRecipeVersion() != Self.iconRecipeVersion {
+            return true
+        }
         let sourceDate = try source.resourceValues(
             forKeys: [.contentModificationDateKey]
         ).contentModificationDate
@@ -75,6 +80,16 @@ struct PopletBundleIconHealer: Sendable {
         ).contentModificationDate
         guard let sourceDate, let targetDate else { return true }
         return sourceDate > targetDate
+    }
+
+    private func storedIconRecipeVersion() -> Int? {
+        guard
+            let infoDictionary = Bundle(url: bundleURL)?.infoDictionary,
+            let recipeVersion = infoDictionary[Self.iconRecipeVersionInfoKey] as? Int
+        else {
+            return nil
+        }
+        return recipeVersion
     }
 
     private func regenerateICNS(from pngURL: URL, to icnsURL: URL) throws {

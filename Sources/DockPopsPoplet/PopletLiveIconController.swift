@@ -10,6 +10,18 @@ import os
 /// atomic-rename writes (new inode) still fire events.
 @MainActor
 final class PopletLiveIconController {
+    private struct IconFileSignature: Equatable {
+        let modificationDate: Date
+        let fileSize: Int
+    }
+
+    private enum RefreshResult {
+        case applied
+        case unchanged
+        case pending
+        case missing
+    }
+
     private static let logger = Logger(
         subsystem: "com.dockpops.companion.poplet",
         category: "LiveIcon"
@@ -22,7 +34,9 @@ final class PopletLiveIconController {
 
     private var directorySource: DispatchSourceFileSystemObject?
     private var debounceTask: Task<Void, Never>?
+    private var settleRetryTask: Task<Void, Never>?
     private var watcherRetryTask: Task<Void, Never>?
+    private var lastAppliedIconSignature: IconFileSignature?
     /// Timestamp of the most recent `applyLatestIcon` fire. Drives the
     /// leading-edge throttle in `scheduleDebouncedRefresh` so continuous FS
     /// events (e.g. a held color drag in the main app firing a PNG write
@@ -33,6 +47,10 @@ final class PopletLiveIconController {
     /// large enough to coalesce the 2-3 redundant FS events an atomic PNG
     /// write produces (rename + attrib).
     private let applyCooldown: Duration = .milliseconds(80)
+    /// Directory notifications can land just before the target PNG's metadata
+    /// or contents visibly flip. A short confirmation retry keeps the live
+    /// tile from getting stuck one move behind on discrete organizer edits.
+    private let settleDelay: Duration = .milliseconds(50)
 
     init(popID: UUID, bundleURL: URL = Bundle.main.bundleURL) {
         self.bundleURL = bundleURL
@@ -42,35 +60,54 @@ final class PopletLiveIconController {
 
     func start() {
         stop()
-        applyLatestIcon()
+        _ = applyLatestIcon()
         installDirectoryWatcher()
     }
 
     func stop() {
         debounceTask?.cancel()
         debounceTask = nil
+        settleRetryTask?.cancel()
+        settleRetryTask = nil
         watcherRetryTask?.cancel()
         watcherRetryTask = nil
         directorySource?.cancel()
         directorySource = nil
     }
 
-    private func applyLatestIcon() {
-        guard let rawImage = PopletIconRendering.loadImage(at: popIconURL) else {
+    private func applyLatestIcon() -> RefreshResult {
+        guard let signature = currentIconSignature() else {
             // The shared PNG may be missing temporarily or gone for good. Fall
             // back to the bundle icon so the running tile does not stay stale.
+            lastAppliedIconSignature = nil
             NSApp.applicationIconImage = NSWorkspace.shared.icon(forFile: bundleURL.path)
-            return
+            return .missing
         }
-        let presented = PopletIconRendering.normalizedCanvas(from: rawImage) ?? rawImage
-        let nsImage = NSImage(
-            cgImage: presented,
-            size: NSSize(
-                width: CGFloat(presented.width),
-                height: CGFloat(presented.height)
+        guard signature != lastAppliedIconSignature else { return .unchanged }
+        guard
+            let data = try? Data(contentsOf: popIconURL),
+            let decodedImage = NSImage(data: data)
+        else {
+            return .pending
+        }
+        let image: NSImage
+        if
+            let rawImage = PopletIconRendering.loadImage(from: data),
+            let normalized = PopletIconRendering.normalizedCanvas(from: rawImage)
+        {
+            image = NSImage(
+                cgImage: normalized,
+                size: NSSize(width: CGFloat(normalized.width), height: CGFloat(normalized.height))
             )
-        )
-        NSApp.applicationIconImage = nsImage
+        } else {
+            image = decodedImage
+        }
+        // The shared PopIcons PNG is already the final composed app icon. Show
+        // it on a presentation canvas so the running tile matches the intended
+        // poplet app-icon size instead of filling the Dock too aggressively.
+        NSApp.applicationIconImage = image
+        lastAppliedIconSignature = signature
+        return .applied
     }
 
     private func installDirectoryWatcher() {
@@ -117,6 +154,8 @@ final class PopletLiveIconController {
     /// the drag ended.
     private func scheduleDebouncedRefresh() {
         debounceTask?.cancel()
+        settleRetryTask?.cancel()
+        settleRetryTask = nil
 
         let now = ContinuousClock.now
         let timeSinceLast: Duration
@@ -136,8 +175,39 @@ final class PopletLiveIconController {
             }
             guard let self else { return }
             self.lastApplyAt = ContinuousClock.now
-            self.applyLatestIcon()
+            switch self.applyLatestIcon() {
+            case .applied, .missing:
+                break
+            case .unchanged, .pending:
+                self.scheduleSettleRetry()
+            }
         }
+    }
+
+    private func scheduleSettleRetry() {
+        settleRetryTask?.cancel()
+
+        settleRetryTask = Task { [weak self] in
+            try? await Task.sleep(for: self?.settleDelay ?? .milliseconds(50))
+            guard !Task.isCancelled, let self else { return }
+            self.settleRetryTask = nil
+
+            switch self.applyLatestIcon() {
+            case .applied, .unchanged, .missing:
+                break
+            case .pending:
+                self.scheduleSettleRetry()
+            }
+        }
+    }
+
+    private func currentIconSignature() -> IconFileSignature? {
+        guard fileManager.fileExists(atPath: popIconURL.path) else { return nil }
+        let values = try? popIconURL.resourceValues(forKeys: [.contentModificationDateKey, .fileSizeKey])
+        return IconFileSignature(
+            modificationDate: values?.contentModificationDate ?? .distantPast,
+            fileSize: values?.fileSize ?? -1
+        )
     }
 
     private func scheduleWatcherRetry() {
