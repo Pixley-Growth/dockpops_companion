@@ -203,7 +203,11 @@ private struct ReadyPopletsStateView: View {
         VStack(alignment: .leading, spacing: CompanionLayout.Content.sectionSpacing) {
             CompanionTitleBlock(
                 title: "DockPops Companion",
-                message: "You can drag as many of the icons below to your Dock. Any changes or Pops you add on the main app will show up here."
+                message: """
+                You can drag as many of the icons below to your Dock. Any changes or Pops you add on the main app will show up here.
+
+                Refresh syncs poplet files and icons. Open poplets may need a quick relaunch to fully update.
+                """
             )
 
             PopletFinderGridView(poplets: poplets, selection: $selection)

@@ -3,7 +3,7 @@ import Foundation
 import os
 
 /// Method C1 — on poplet launch, rebuilds the bundle's `Contents/Resources/AppIcon.icns`
-/// when the shared pop composite PNG is newer, then re-signs the bundle ad-hoc
+/// when the mirrored live icon PNG is newer, then re-signs the bundle ad-hoc
 /// and nudges Launch Services so Finder and the Dock-at-rest tile reflect the
 /// current icon.
 ///
@@ -35,6 +35,16 @@ struct PopletBundleIconHealer: Sendable {
 
     let popID: UUID
     let bundleURL: URL
+    let sourcePNG: URL?
+
+    init(popID: UUID, bundleURL: URL) {
+        self.popID = popID
+        self.bundleURL = bundleURL
+        self.sourcePNG = PopletSharedPaths.mirroredPopIconURL(for: popID)
+        if let sourcePNG {
+            PopletSharedPaths.assertUsesMirroredLiveIconFile(sourcePNG)
+        }
+    }
 
     func healIfStale() async {
         do {
@@ -49,7 +59,7 @@ struct PopletBundleIconHealer: Sendable {
     }
 
     private func performHealIfStale() async throws {
-        let sourcePNG = PopletSharedPaths.popIconURL(for: popID)
+        guard let sourcePNG else { return }
         let targetICNS = bundleURL
             .appending(path: "Contents", directoryHint: .isDirectory)
             .appending(path: "Resources", directoryHint: .isDirectory)

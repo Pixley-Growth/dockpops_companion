@@ -56,4 +56,4 @@ That script:
 - builds the Release app into `/tmp/DockPopsCompanion-Release`
 - re-signs the embedded `DockPopsPoplet` helper with the local Developer ID identity
 - re-signs the top-level app bundle and verifies both signatures
-- writes the final DMG to `release/DockPopsCompanion-1.0.dmg`
+- writes the final DMG to `release/DockPopsCompanion-1.1.dmg`

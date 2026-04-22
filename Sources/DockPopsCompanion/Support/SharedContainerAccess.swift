@@ -38,6 +38,11 @@ enum SharedContainerAccess {
         static let bookmarkData = "sharedContainerBookmarkData"
     }
 
+    private enum BookmarkSource {
+        case defaults
+        case file
+    }
+
     final class PersistentAccessSession {
         let url: URL
 
@@ -61,10 +66,12 @@ enum SharedContainerAccess {
 
     static func hasStoredBookmark() -> Bool {
         UserDefaults.standard.data(forKey: DefaultsKey.bookmarkData) != nil
+            || FileManager.default.fileExists(atPath: AppPaths.sharedContainerBookmarkURL.path)
     }
 
     static func clearStoredBookmark() {
         UserDefaults.standard.removeObject(forKey: DefaultsKey.bookmarkData)
+        try? FileManager.default.removeItem(at: AppPaths.sharedContainerBookmarkURL)
     }
 
     @MainActor
@@ -104,7 +111,7 @@ enum SharedContainerAccess {
             includingResourceValuesForKeys: nil,
             relativeTo: nil
         )
-        UserDefaults.standard.set(bookmarkData, forKey: DefaultsKey.bookmarkData)
+        try storeBookmarkData(bookmarkData)
         return selectedURL
     }
 
@@ -139,8 +146,15 @@ enum SharedContainerAccess {
     }
 
     private static func resolvedContainerURL() throws -> ResolvedBookmark {
-        guard let bookmarkData = UserDefaults.standard.data(forKey: DefaultsKey.bookmarkData) else {
-            throw SharedContainerAccessError.permissionRequired
+        let storedBookmark = try loadStoredBookmarkData()
+        let bookmarkData = storedBookmark.data
+        let needsMirrorUpdate =
+            storedBookmark.source == .file
+            || UserDefaults.standard.data(forKey: DefaultsKey.bookmarkData) != bookmarkData
+            || !FileManager.default.fileExists(atPath: AppPaths.sharedContainerBookmarkURL.path)
+
+        if needsMirrorUpdate {
+            try storeBookmarkData(bookmarkData)
         }
 
         var isStale = false
@@ -172,7 +186,28 @@ enum SharedContainerAccess {
             includingResourceValuesForKeys: nil,
             relativeTo: nil
         )
-        UserDefaults.standard.set(refreshedBookmark, forKey: DefaultsKey.bookmarkData)
+        try storeBookmarkData(refreshedBookmark)
+    }
+
+    private static func loadStoredBookmarkData() throws -> (data: Data, source: BookmarkSource) {
+        if let bookmarkData = UserDefaults.standard.data(forKey: DefaultsKey.bookmarkData) {
+            return (bookmarkData, .defaults)
+        }
+
+        if let bookmarkData = try? Data(contentsOf: AppPaths.sharedContainerBookmarkURL) {
+            return (bookmarkData, .file)
+        }
+
+        throw SharedContainerAccessError.permissionRequired
+    }
+
+    private static func storeBookmarkData(_ bookmarkData: Data) throws {
+        UserDefaults.standard.set(bookmarkData, forKey: DefaultsKey.bookmarkData)
+        try FileManager.default.createDirectory(
+            at: AppPaths.companionSupportDirectoryURL,
+            withIntermediateDirectories: true
+        )
+        try bookmarkData.write(to: AppPaths.sharedContainerBookmarkURL, options: .atomic)
     }
 
     private static func isExpectedContainerURL(_ url: URL) -> Bool {

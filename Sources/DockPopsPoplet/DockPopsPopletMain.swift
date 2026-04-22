@@ -27,15 +27,22 @@ private final class DockPopsPopletDelegate: NSObject, NSApplicationDelegate {
 
         installMenu()
 
+        // SACRED CODE:
+        // Poplets must never reopen shared-container access on launch. They
+        // consume only the companion-managed mirror so they stay prompt-free
+        // and so live icon regressions cannot sneak back in through a "quick"
+        // raw path fallback.
+
         // Method B — mirror the shared pop composite onto the running app's
-        // Dock tile via NSApp.applicationIconImage. Never touches the bundle
-        // on disk, so it cannot invalidate the bundle signature.
+        // Dock tile via NSApp.applicationIconImage using the companion's
+        // mirrored live-icon cache. Never touches the bundle on disk, so it
+        // cannot invalidate the bundle signature.
         let live = PopletLiveIconController(popID: popID)
         live.start()
         liveIconController = live
 
-        // Method C1 — if the on-disk AppIcon.icns is older than the shared
-        // source PNG, rebuild it, re-sign the bundle, and nudge Launch
+        // Method C1 — if the on-disk AppIcon.icns is older than the mirrored
+        // live icon PNG, rebuild it, re-sign the bundle, and nudge Launch
         // Services so Finder / Dock-at-rest pick up the fresh icon. Runs
         // detached so a slow iconutil/codesign doesn't delay openPop().
         let healer = PopletBundleIconHealer(

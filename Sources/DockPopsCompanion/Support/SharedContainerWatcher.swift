@@ -1,6 +1,14 @@
 import Foundation
 import os
 
+/// SACRED CODE:
+/// This watcher exists so the companion can mirror DockPops' protected
+/// `PopIcons` directory into the public poplet live-icon cache. Poplets do not
+/// watch the protected shared container themselves anymore.
+///
+/// If this class stops mirroring and starts merely notifying UI refreshes, the
+/// running poplets will fall out of sync or get pushed back toward direct
+/// shared-container access, which is exactly what caused the permission loop.
 @MainActor
 final class SharedContainerWatcher {
     private static let logger = Logger(
@@ -15,7 +23,11 @@ final class SharedContainerWatcher {
     private var containerWatcher: DirectoryWatcher?
     private var popIconsWatcher: DirectoryWatcher?
     private var debounceTask: Task<Void, Never>?
+    private var mirrorRefreshTask: Task<Void, Never>?
     private var popIconsRetryTask: Task<Void, Never>?
+    private var lastMirrorRefreshAt: ContinuousClock.Instant?
+
+    private let mirrorRefreshCooldown: Duration = .milliseconds(80)
 
     init(onChange: @escaping @MainActor () -> Void) {
         self.onChange = onChange
@@ -36,6 +48,7 @@ final class SharedContainerWatcher {
                 }
             }
             installPopIconsWatcherIfPossible(at: paths.sharedPopIconsDirectoryURL)
+            refreshMirroredPopIcons(from: paths.sharedPopIconsDirectoryURL)
         } catch {
             Self.logger.error("Unable to start shared container watcher: \(error.localizedDescription, privacy: .public)")
             stop()
@@ -45,8 +58,11 @@ final class SharedContainerWatcher {
     func stop() {
         debounceTask?.cancel()
         debounceTask = nil
+        mirrorRefreshTask?.cancel()
+        mirrorRefreshTask = nil
         popIconsRetryTask?.cancel()
         popIconsRetryTask = nil
+        lastMirrorRefreshAt = nil
         popIconsWatcher?.cancel()
         popIconsWatcher = nil
         containerWatcher?.cancel()
@@ -56,9 +72,16 @@ final class SharedContainerWatcher {
     }
 
     private func handleContainerEvent(paths: SharedContainerPaths) {
+        let popIconsURL = paths.sharedPopIconsDirectoryURL
+        if popIconsWatcher != nil, !fileManager.fileExists(atPath: popIconsURL.path) {
+            popIconsWatcher?.cancel()
+            popIconsWatcher = nil
+            schedulePopIconsRetry(for: popIconsURL)
+        }
+        scheduleMirroredPopIconsRefresh(from: popIconsURL)
         scheduleDebouncedRefresh()
         if popIconsWatcher == nil {
-            installPopIconsWatcherIfPossible(at: paths.sharedPopIconsDirectoryURL)
+            installPopIconsWatcherIfPossible(at: popIconsURL)
         }
     }
 
@@ -73,9 +96,18 @@ final class SharedContainerWatcher {
         do {
             popIconsWatcher = try DirectoryWatcher(url: url) { [weak self] in
                 MainActor.assumeIsolated { [weak self] in
-                    self?.scheduleDebouncedRefresh()
+                    guard let self else { return }
+                    if !self.fileManager.fileExists(atPath: url.path) {
+                        self.popIconsWatcher?.cancel()
+                        self.popIconsWatcher = nil
+                        self.schedulePopIconsRetry(for: url)
+                    }
+                    self.scheduleMirroredPopIconsRefresh(from: url)
+                    self.scheduleDebouncedRefresh()
                 }
             }
+            refreshMirroredPopIcons(from: url)
+            scheduleDebouncedRefresh()
         } catch {
             Self.logger.error("Unable to watch PopIcons directory: \(error.localizedDescription, privacy: .public)")
             schedulePopIconsRetry(for: url)
@@ -99,6 +131,44 @@ final class SharedContainerWatcher {
             guard !Task.isCancelled, let self else { return }
             self.popIconsRetryTask = nil
             self.installPopIconsWatcherIfPossible(at: url)
+        }
+    }
+
+    private func scheduleMirroredPopIconsRefresh(from sourceDirectoryURL: URL) {
+        mirrorRefreshTask?.cancel()
+
+        let now = ContinuousClock.now
+        let timeSinceLastRefresh: Duration
+        if let lastMirrorRefreshAt {
+            timeSinceLastRefresh = now - lastMirrorRefreshAt
+        } else {
+            timeSinceLastRefresh = .seconds(999)
+        }
+        let delay: Duration = timeSinceLastRefresh >= mirrorRefreshCooldown
+            ? .zero
+            : mirrorRefreshCooldown - timeSinceLastRefresh
+
+        mirrorRefreshTask = Task { [weak self] in
+            if delay > .zero {
+                try? await Task.sleep(for: delay)
+                guard !Task.isCancelled else { return }
+            }
+            guard let self else { return }
+            self.lastMirrorRefreshAt = ContinuousClock.now
+            self.refreshMirroredPopIcons(from: sourceDirectoryURL)
+        }
+    }
+
+    private func refreshMirroredPopIcons(from sourceDirectoryURL: URL) {
+        do {
+            try PopletLiveIconMirror.sync(
+                sourceDirectoryURL: sourceDirectoryURL,
+                fileManager: fileManager
+            )
+        } catch {
+            Self.logger.error(
+                "Unable to mirror live pop icons: \(error.localizedDescription, privacy: .public)"
+            )
         }
     }
 }

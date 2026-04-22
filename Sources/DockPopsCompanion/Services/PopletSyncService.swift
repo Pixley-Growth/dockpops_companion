@@ -75,9 +75,14 @@ final class PopletSyncService {
         do {
             try ensureDirectory(AppPaths.popletsDirectoryURL)
             try ensureDirectory(AppPaths.companionSupportDirectoryURL)
+            try ensureDirectory(AppPaths.popletLiveIconsDirectoryURL)
             return try SharedContainerAccess.withAccess { containerURL in
                 let paths = SharedContainerPaths(containerURL: containerURL)
                 try ensureSharedContainerAccess(at: paths.containerURL)
+                try PopletLiveIconMirror.sync(
+                    sourceDirectoryURL: paths.sharedPopIconsDirectoryURL,
+                    fileManager: fileManager
+                )
 
                 let metadataAvailable = fileManager.fileExists(atPath: paths.shortcutGroupsURL.path)
 
@@ -384,11 +389,11 @@ final class PopletSyncService {
             )
         }
 
-        if let dockPopsIcon = resolvedDockPopsIcon() {
+        if let dockPopsIcon = resolvedDockPopsIcon(baseBuildVersion: baseBuildVersion) {
             return ResolvedPopletIcon(
-                image: dockPopsIcon,
+                image: dockPopsIcon.image,
                 source: .dockPopsApp,
-                bundleVersion: baseBuildVersion
+                bundleVersion: dockPopsIcon.bundleVersion
             )
         }
 
@@ -403,9 +408,14 @@ final class PopletSyncService {
         return dockPopsApplicationURL() == nil ? .generic : .dockPopsApp
     }
 
-    private func resolvedDockPopsIcon() -> NSImage? {
+    private func resolvedDockPopsIcon(baseBuildVersion: String) -> ResolvedDockPopsIcon? {
         guard let appURL = dockPopsApplicationURL() else { return nil }
-        return NSWorkspace.shared.icon(forFile: appURL.path)
+        let rawImage = NSWorkspace.shared.icon(forFile: appURL.path)
+        let image = rawImage.normalizedPopletAppIcon() ?? rawImage
+        return ResolvedDockPopsIcon(
+            image: image,
+            bundleVersion: bundleVersionForDockPopsIcon(image: image, baseBuildVersion: baseBuildVersion)
+        )
     }
 
     private func dockPopsApplicationURL() -> URL? {
@@ -623,6 +633,23 @@ final class PopletSyncService {
         return "\(baseBuildVersion).\(Self.popletIconRecipeVersion).\(timestamp)"
     }
 
+    private func bundleVersionForDockPopsIcon(image: NSImage, baseBuildVersion: String) -> String {
+        guard let pngData = image.pngRepresentation(squarePixelSize: 512) else {
+            return "\(baseBuildVersion).\(Self.popletIconRecipeVersion)"
+        }
+
+        return "\(baseBuildVersion).\(Self.popletIconRecipeVersion).\(stableIconFingerprint(for: pngData))"
+    }
+
+    private func stableIconFingerprint(for data: Data) -> UInt32 {
+        var hash: UInt32 = 2_166_136_261
+        for byte in data {
+            hash ^= UInt32(byte)
+            hash = hash &* 16_777_619
+        }
+        return max(1, hash & 0x7fff_ffff)
+    }
+
     private func installGeneratedPopletBundle(at stagingURL: URL, destinationURL: URL) throws {
         if fileManager.fileExists(atPath: destinationURL.path) {
             _ = try fileManager.replaceItemAt(
@@ -735,6 +762,75 @@ private final class ProcessOutputCollector: @unchecked Sendable {
 private struct ResolvedPopletIcon {
     let image: NSImage?
     let source: PopletIconSource
+    let bundleVersion: String
+}
+
+/// SACRED CODE:
+/// The companion is the only process that should ever touch DockPops'
+/// protected shared container for live per-Pop icon data. Poplets must read
+/// only from the mirrored cache in `Application Support/DockPops Companion`.
+///
+/// If you are tempted to bypass this mirror and read `group.com.dockpops.shared`
+/// directly from a poplet, stop. That is how we got back into repeated folder
+/// prompts and generic blue fallback icons.
+enum PopletLiveIconMirror {
+    private static let mirrorFileExtension = "png"
+
+    static func sync(
+        sourceDirectoryURL: URL,
+        destinationDirectoryURL: URL = AppPaths.popletLiveIconsDirectoryURL,
+        fileManager: FileManager = .default
+    ) throws {
+        try fileManager.createDirectory(at: destinationDirectoryURL, withIntermediateDirectories: true)
+
+        let sourceFileURLs: [URL]
+        if fileManager.fileExists(atPath: sourceDirectoryURL.path) {
+            sourceFileURLs = try fileManager.contentsOfDirectory(
+                at: sourceDirectoryURL,
+                includingPropertiesForKeys: nil,
+                options: [.skipsHiddenFiles]
+            )
+            .filter {
+                $0.pathExtension.caseInsensitiveCompare(mirrorFileExtension) == .orderedSame
+            }
+        } else {
+            sourceFileURLs = []
+        }
+
+        let destinationFileURLs = (try? fileManager.contentsOfDirectory(
+            at: destinationDirectoryURL,
+            includingPropertiesForKeys: nil,
+            options: [.skipsHiddenFiles]
+        )) ?? []
+
+        let desiredFilenames = Set(sourceFileURLs.map(\.lastPathComponent))
+
+        for sourceFileURL in sourceFileURLs {
+            let destinationFileURL = destinationDirectoryURL.appending(path: sourceFileURL.lastPathComponent)
+            let sourceData = try Data(contentsOf: sourceFileURL)
+
+            if
+                fileManager.fileExists(atPath: destinationFileURL.path),
+                let existingData = try? Data(contentsOf: destinationFileURL),
+                existingData == sourceData
+            {
+                continue
+            }
+
+            try sourceData.write(to: destinationFileURL, options: .atomic)
+        }
+
+        for destinationFileURL in destinationFileURLs
+        where destinationFileURL.pathExtension.caseInsensitiveCompare(mirrorFileExtension) == .orderedSame
+        {
+            guard !desiredFilenames.contains(destinationFileURL.lastPathComponent) else { continue }
+            try? fileManager.removeItem(at: destinationFileURL)
+        }
+    }
+}
+
+private struct ResolvedDockPopsIcon {
+    let image: NSImage
     let bundleVersion: String
 }
 

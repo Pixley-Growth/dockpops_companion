@@ -3,7 +3,7 @@ set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 DERIVED_DATA="${DERIVED_DATA:-/tmp/DockPopsCompanion-Release}"
-OUTPUT_DMG="${1:-$ROOT_DIR/release/DockPopsCompanion-1.0.dmg}"
+OUTPUT_DMG="${1:-$ROOT_DIR/release/DockPopsCompanion-1.1.dmg}"
 APP_PATH="$DERIVED_DATA/Build/Products/Release/DockPopsCompanion.app"
 HELPER_PATH="$APP_PATH/Contents/Helpers/DockPopsPoplet"
 APP_XCENT="$DERIVED_DATA/Build/Intermediates.noindex/DockPopsCompanion.build/Release/DockPopsCompanion.build/DockPopsCompanion.app.xcent"
