@@ -3,19 +3,19 @@
     <channel>
         <title>DockPopsCompanion</title>
         <item>
-            <title>1.1</title>
-            <pubDate>Wed, 22 Apr 2026 12:26:43 -0500</pubDate>
-            <link>https://github.com/Pixley-Growth/dockpops_companion/releases/tag/v1.1.0</link>
-            <sparkle:version>5</sparkle:version>
-            <sparkle:shortVersionString>1.1</sparkle:shortVersionString>
+            <title>1.2</title>
+            <pubDate>Thu, 23 Apr 2026 07:22:33 -0500</pubDate>
+            <link>https://github.com/Pixley-Growth/dockpops_companion/releases/tag/v1.2.0</link>
+            <sparkle:version>6</sparkle:version>
+            <sparkle:shortVersionString>1.2</sparkle:shortVersionString>
             <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
-            <description sparkle:format="markdown"><![CDATA[## DockPops Companion 1.1
+            <description sparkle:format="markdown"><![CDATA[## DockPops Companion 1.2
 
-- Poplets now reuse the companion-managed live icon mirror instead of poking DockPops' protected containers directly, which fixes repeated permission prompts and generic fallback icons.
-- Running poplets stay in sync more reliably during icon edits, organizer moves, refreshes, and relaunches.
-- Refresh guidance in the companion now explains when a quick poplet relaunch is still needed after files and icons are synced.
+- Fixed the closed poplet icon recipe so unopened poplets no longer get the fat white border around their Dock icon.
+- Enabled Sparkle automatic update checks so installed companions can discover new releases without relying only on manual checks.
+- Preserved the companion-managed live icon mirror path so regenerated poplets keep using the prompt-free icon source.
 ]]></description>
-            <enclosure url="https://github.com/Pixley-Growth/dockpops_companion/releases/download/v1.1.0/DockPopsCompanion-1.1.dmg" length="8244813" type="application/octet-stream" sparkle:edSignature="d+a3Z+7hrax0V0iXsKqPhrLJdRMi4QkvCsQp5AKxYpY452747FDBQbNBYYDCmqgCEtUpdr6HukzdusT9D9XCBg=="/>
+            <enclosure url="https://github.com/Pixley-Growth/dockpops_companion/releases/download/v1.2.0/DockPopsCompanion-1.2.dmg" length="8243920" type="application/octet-stream" sparkle:edSignature="eTTciivHRjnx5dio8BDt1cAZ6bNt6HYw/ft6oObjIvYajmjRzh4QzEaADlCObed215w++emlzSTDNOctaA3DBA=="/>
         </item>
     </channel>
 </rss>

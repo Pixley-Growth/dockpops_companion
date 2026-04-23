@@ -26,7 +26,7 @@ To make that live:
 4. Use Sparkle's `generate_appcast` tool against a folder containing your release archives.
 5. Publish the generated `appcast.xml` to `docs/appcast.xml` and upload the matching archive to GitHub Releases.
 
-The app currently defaults to manual update checks only, so Sparkle will not surprise users with a second-launch background-check permission prompt.
+The app is configured for Sparkle's normal automatic update checks while still letting users trigger `Check for Updates…` manually from the app menu.
 
 ## DMG Packaging
 
@@ -41,7 +41,7 @@ That creates `release/DockPopsCompanion.dmg` containing:
 - `DockPopsCompanion.app`
 - an `/Applications` shortcut for the normal macOS drag-to-install flow
 
-For the first Sparkle test cycle, use the menu item `Check for Updates…` after installing the first release. The app is currently configured for manual update checks only.
+For the first Sparkle test cycle, you can use the menu item `Check for Updates…` after installing the first release to force a check immediately instead of waiting for Sparkle's automatic schedule.
 
 ## Release Build
 
@@ -56,4 +56,4 @@ That script:
 - builds the Release app into `/tmp/DockPopsCompanion-Release`
 - re-signs the embedded `DockPopsPoplet` helper with the local Developer ID identity
 - re-signs the top-level app bundle and verifies both signatures
-- writes the final DMG to `release/DockPopsCompanion-1.1.dmg`
+- writes the final DMG to `release/DockPopsCompanion-1.2.dmg`

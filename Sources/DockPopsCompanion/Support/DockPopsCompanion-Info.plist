@@ -31,7 +31,7 @@
 	<key>NSPrincipalClass</key>
 	<string>NSApplication</string>
 	<key>SUEnableAutomaticChecks</key>
-	<false/>
+	<true/>
 	<key>SUFeedURL</key>
 	<string>https://pixley-growth.github.io/dockpops_companion/appcast.xml</string>
 	<key>SUPublicEDKey</key>

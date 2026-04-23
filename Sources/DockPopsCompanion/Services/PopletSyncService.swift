@@ -10,7 +10,7 @@ final class PopletSyncService {
     /// Bump when the poplet icon rendering recipe changes even if the source
     /// PopIcons PNG does not. This forces unopened poplets onto a fresh bundle
     /// version so Dock/Finder stop serving stale cached icons.
-    private static let popletIconRecipeVersion = 3
+    private static let popletIconRecipeVersion = 5
     private static let popletIconRecipeVersionInfoKey = "DockPopsIconRecipeVersion"
     private static let launchServicesRegisterPath =
         "/System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/LaunchServices.framework/Support/lsregister"
@@ -381,9 +381,13 @@ final class PopletSyncService {
         let baseBuildVersion = currentCompanionBuildVersion()
         let popIconURL = paths.sharedPopIconsDirectoryURL.appending(path: "\(popID.uuidString).png")
         if let image = NSImage(contentsOf: popIconURL) {
-            let normalized = image.normalizedPopletAppIcon() ?? image
+            // SACRED CODE:
+            // The shared PopIcons PNG is already the final composed app-icon art.
+            // The closed/baked app icon path must not inset it again. Doing so
+            // creates a double-padded ICNS that the Dock renders with a fat white
+            // plate around the poplet when it is not running.
             return ResolvedPopletIcon(
-                image: normalized,
+                image: image,
                 source: .popComposite,
                 bundleVersion: bundleVersionForPopComposite(at: popIconURL, baseBuildVersion: baseBuildVersion)
             )
@@ -411,10 +415,9 @@ final class PopletSyncService {
     private func resolvedDockPopsIcon(baseBuildVersion: String) -> ResolvedDockPopsIcon? {
         guard let appURL = dockPopsApplicationURL() else { return nil }
         let rawImage = NSWorkspace.shared.icon(forFile: appURL.path)
-        let image = rawImage.normalizedPopletAppIcon() ?? rawImage
         return ResolvedDockPopsIcon(
-            image: image,
-            bundleVersion: bundleVersionForDockPopsIcon(image: image, baseBuildVersion: baseBuildVersion)
+            image: rawImage,
+            bundleVersion: bundleVersionForDockPopsIcon(image: rawImage, baseBuildVersion: baseBuildVersion)
         )
     }
 

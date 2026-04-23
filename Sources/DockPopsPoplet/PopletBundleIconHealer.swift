@@ -16,7 +16,7 @@ struct PopletBundleIconHealer: Sendable {
         category: "IconHealer"
     )
     private static let iconName = "AppIcon"
-    private static let iconRecipeVersion = 3
+    private static let iconRecipeVersion = 5
     private static let iconRecipeVersionInfoKey = "DockPopsIconRecipeVersion"
     private static let iconVariants: [(name: String, pixelSize: Int)] = [
         ("icon_16x16.png", 16),
@@ -106,7 +106,6 @@ struct PopletBundleIconHealer: Sendable {
         guard let rawImage = PopletIconRendering.loadImage(at: pngURL) else {
             throw PopletIconError.imageLoadFailed(pngURL)
         }
-        let normalized = PopletIconRendering.normalizedCanvas(from: rawImage) ?? rawImage
 
         let tempRoot = FileManager.default.temporaryDirectory
             .appending(
@@ -127,7 +126,7 @@ struct PopletBundleIconHealer: Sendable {
 
         for variant in Self.iconVariants {
             guard let data = PopletIconRendering.resizedPNGData(
-                from: normalized,
+                from: rawImage,
                 pixelSize: variant.pixelSize
             ) else {
                 throw PopletIconError.iconsetVariantFailed(variant.name)
