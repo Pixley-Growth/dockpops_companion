@@ -46,22 +46,11 @@ struct ContentView: View {
     @State private var selectedPopletIDs: Set<UUID> = []
 
     var body: some View {
-        Group {
-            switch model.screenState {
-            case .launching:
-                launchStateView
-            case .sharedAccess:
-                connectStateView
-            case .waitingForMetadata:
-                waitingForDockPopsStateView
-            case .empty:
-                emptyPopsStateView
-            case .ready:
-                readyPopletsStateView
-            }
+        ZStack(alignment: .top) {
+            Color(nsColor: .windowBackgroundColor)
+            screenContent
         }
-        .frame(maxWidth: .infinity, alignment: .top)
-        .modifier(WindowSurfaceModifier())
+        .frame(maxWidth: .infinity)
         .task {
             model.start()
         }
@@ -80,6 +69,24 @@ struct ContentView: View {
                 }
             }
         }
+    }
+
+    private var screenContent: some View {
+        Group {
+            switch model.screenState {
+            case .launching:
+                launchStateView
+            case .sharedAccess:
+                connectStateView
+            case .waitingForMetadata:
+                waitingForDockPopsStateView
+            case .empty:
+                emptyPopsStateView
+            case .ready:
+                readyPopletsStateView
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .top)
     }
 
     private var readyPopletsStateView: some View {
@@ -474,16 +481,5 @@ private struct DockDropCard: View {
         .padding(16)
         .frame(maxWidth: .infinity, minHeight: 148, alignment: .topLeading)
         .background(Color.white.opacity(0.06), in: RoundedRectangle(cornerRadius: 18, style: .continuous))
-    }
-}
-
-private struct WindowSurfaceModifier: ViewModifier {
-    @ViewBuilder
-    func body(content: Content) -> some View {
-        if #available(macOS 15.0, *) {
-            content.containerBackground(.thinMaterial, for: .window)
-        } else {
-            content
-        }
     }
 }

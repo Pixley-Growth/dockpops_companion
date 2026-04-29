@@ -3,6 +3,7 @@ import SwiftUI
 
 @main
 struct DockPopsCompanionApp: App {
+    @NSApplicationDelegateAdaptor(DockPopsCompanionAppDelegate.self) private var appDelegate
     @State private var model = CompanionModel()
     @State private var appUpdater = AppUpdater()
 
@@ -23,7 +24,7 @@ struct DockPopsCompanionApp: App {
             width: CompanionLayout.Window.launchSize.width,
             height: CompanionLayout.Window.launchSize.height
         )
-        .windowResizability(.contentSize)
+        .windowResizability(.contentMinSize)
         .commands {
             CommandGroup(after: .appInfo) {
                 Button("Check for Updates…") {
@@ -31,6 +32,48 @@ struct DockPopsCompanionApp: App {
                 }
                 .disabled(!appUpdater.canCheckForUpdates)
             }
+        }
+    }
+}
+
+private final class DockPopsCompanionAppDelegate: NSObject, NSApplicationDelegate {
+    private var windowObserver: NSObjectProtocol?
+    private var launchSizingTask: Task<Void, Never>?
+
+    func applicationDidFinishLaunching(_ notification: Notification) {
+        windowObserver = NotificationCenter.default.addObserver(
+            forName: NSWindow.didBecomeKeyNotification,
+            object: nil,
+            queue: .main
+        ) { notification in
+            guard let window = notification.object as? NSWindow else { return }
+            Task { @MainActor in
+                WindowFrameResetter.applyLaunchSizeIfNeeded(
+                    to: window,
+                    size: CompanionLayout.Window.launchSize
+                )
+            }
+        }
+
+        launchSizingTask = Task { @MainActor in
+            for delay in [0, 100_000_000, 400_000_000] {
+                if delay > 0 {
+                    try? await Task.sleep(nanoseconds: UInt64(delay))
+                }
+                NSApplication.shared.windows.forEach { window in
+                    WindowFrameResetter.applyLaunchSizeIfNeeded(
+                        to: window,
+                        size: CompanionLayout.Window.launchSize
+                    )
+                }
+            }
+        }
+    }
+
+    func applicationWillTerminate(_ notification: Notification) {
+        launchSizingTask?.cancel()
+        if let windowObserver {
+            NotificationCenter.default.removeObserver(windowObserver)
         }
     }
 }
@@ -59,6 +102,27 @@ private enum WindowFrameResetter {
 
         guard widthIsAbsurd || heightIsAbsurd || tallerThanVisibleScreen else { return }
         UserDefaults.standard.removeObject(forKey: key)
+    }
+
+    @MainActor
+    static func applyLaunchSizeIfNeeded(to window: NSWindow, size: NSSize) {
+        guard isMainCompanionWindow(window) else { return }
+
+        window.isRestorable = false
+        UserDefaults.standard.removeObject(forKey: "NSWindow Frame main")
+
+        let contentSize = window.contentLayoutRect.size
+        let widthIsAbsurd = contentSize.width > size.width * 1.8 || contentSize.width < size.width * 0.6
+        let heightIsAbsurd = contentSize.height > size.height * 1.8 || contentSize.height < size.height * 0.6
+
+        guard widthIsAbsurd || heightIsAbsurd else { return }
+        window.setContentSize(size)
+        window.center()
+    }
+
+    @MainActor
+    private static func isMainCompanionWindow(_ window: NSWindow) -> Bool {
+        window.identifier?.rawValue == "main" || window.title == "DockPops Companion"
     }
 }
 
@@ -109,10 +173,7 @@ private struct WindowLaunchSizingView: NSViewRepresentable {
         }
 
         private func apply(window: NSWindow, size: NSSize) {
-            window.isRestorable = false
-            UserDefaults.standard.removeObject(forKey: "NSWindow Frame main")
-            window.setContentSize(size)
-            window.center()
+            WindowFrameResetter.applyLaunchSizeIfNeeded(to: window, size: size)
         }
     }
 }

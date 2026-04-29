@@ -2,6 +2,10 @@
 
 Small macOS companion utility for the App Store build of DockPops.
 
+Download the latest signed installer DMG from:
+
+- `https://github.com/Pixley-Growth/dockpops_companion/releases/latest/download/DockPopsCompanion.dmg`
+
 Open `DockPopsCompanion.xcodeproj` in Xcode to build the native project directly.
 
 Current goals:
@@ -56,4 +60,4 @@ That script:
 - builds the Release app into `/tmp/DockPopsCompanion-Release`
 - re-signs the embedded `DockPopsPoplet` helper with the local Developer ID identity
 - re-signs the top-level app bundle and verifies both signatures
-- writes the final DMG to `release/DockPopsCompanion-1.2.dmg`
+- writes the final DMG to `release/DockPopsCompanion-1.5.dmg`

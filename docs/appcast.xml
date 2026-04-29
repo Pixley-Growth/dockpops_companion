@@ -3,19 +3,19 @@
     <channel>
         <title>DockPopsCompanion</title>
         <item>
-            <title>1.2</title>
-            <pubDate>Thu, 23 Apr 2026 07:22:33 -0500</pubDate>
-            <link>https://github.com/Pixley-Growth/dockpops_companion/releases/tag/v1.2.0</link>
-            <sparkle:version>6</sparkle:version>
-            <sparkle:shortVersionString>1.2</sparkle:shortVersionString>
+            <title>1.5</title>
+            <pubDate>Wed, 29 Apr 2026 17:52:18 -0500</pubDate>
+            <link>https://github.com/Pixley-Growth/dockpops_companion/releases/tag/v1.5.0</link>
+            <sparkle:version>7</sparkle:version>
+            <sparkle:shortVersionString>1.5</sparkle:shortVersionString>
             <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
-            <description sparkle:format="markdown"><![CDATA[## DockPops Companion 1.2
+            <description sparkle:format="markdown"><![CDATA[## DockPops Companion 1.5
 
-- Fixed the closed poplet icon recipe so unopened poplets no longer get the fat white border around their Dock icon.
-- Enabled Sparkle automatic update checks so installed companions can discover new releases without relying only on manual checks.
-- Preserved the companion-managed live icon mirror path so regenerated poplets keep using the prompt-free icon source.
+- Fixed a macOS 15 window rendering issue where the companion could appear empty or translucent and show the desktop wallpaper through the window.
+- Reset stale oversized restored window frames so the companion opens at the intended size with content visible.
+- Kept the companion on an opaque system window background while preserving the existing refresh and shared-folder access flow.
 ]]></description>
-            <enclosure url="https://github.com/Pixley-Growth/dockpops_companion/releases/download/v1.2.0/DockPopsCompanion-1.2.dmg" length="8243920" type="application/octet-stream" sparkle:edSignature="eTTciivHRjnx5dio8BDt1cAZ6bNt6HYw/ft6oObjIvYajmjRzh4QzEaADlCObed215w++emlzSTDNOctaA3DBA=="/>
+            <enclosure url="https://github.com/Pixley-Growth/dockpops_companion/releases/download/v1.5.0/DockPopsCompanion-1.5.dmg" length="8253755" type="application/octet-stream" sparkle:edSignature="EDFLagXPwZy16ZRvHC20CZBfAfiJccE0i/q04YGJtC/4GsBZpC3okeOpS9ZyzlmFBJF/OZsss7rEmHsFqyccAA=="/>
         </item>
     </channel>
 </rss>

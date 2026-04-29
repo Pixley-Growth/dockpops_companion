@@ -3,7 +3,7 @@
 	archiveVersion = 1;
 	classes = {
 	};
-	objectVersion = 77;
+	objectVersion = 63;
 	objects = {
 
 /* Begin PBXBuildFile section */
@@ -63,7 +63,7 @@
 		9E29CAE626AADFC4D77D66DE /* DockPopsCompanion-Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = "DockPopsCompanion-Info.plist"; sourceTree = "<group>"; };
 		9E5D91F351285A8A82DDE96F /* PopletIconView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PopletIconView.swift; sourceTree = "<group>"; };
 		9FB099EAF70E6CE380F609A2 /* PopletStatus.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PopletStatus.swift; sourceTree = "<group>"; };
-		A000AB7B7C1DF47229EAD909 /* DockPopsPoplet */ = {isa = PBXFileReference; includeInIndex = 0; path = DockPopsPoplet; sourceTree = BUILT_PRODUCTS_DIR; };
+		A000AB7B7C1DF47229EAD909 /* DockPopsPoplet */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = text; path = DockPopsPoplet; sourceTree = BUILT_PRODUCTS_DIR; };
 		A1AD5790CB451EC2FA268EAE /* NSImage+CGImage.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "NSImage+CGImage.swift"; sourceTree = "<group>"; };
 		CC4259405605AAC63B187981 /* PopletSyncService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PopletSyncService.swift; sourceTree = "<group>"; };
 		CD77AE508B49686CDE6E5EB0 /* PopletFinderGridView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PopletFinderGridView.swift; sourceTree = "<group>"; };
@@ -255,7 +255,6 @@
 			packageReferences = (
 				7E628B0C15B092BA0DB4FC1D /* XCRemoteSwiftPackageReference "Sparkle" */,
 			);
-			preferredProjectObjectVersion = 77;
 			projectDirPath = "";
 			projectRoot = "";
 			targets = (
@@ -514,13 +513,16 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				COMBINE_HIDPI_IMAGES = YES;
+				CURRENT_PROJECT_VERSION = 7;
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = "Sources/DockPopsCompanion/Support/DockPopsCompanion-Info.plist";
+				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.utilities";
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/../Frameworks",
 				);
 				MACOSX_DEPLOYMENT_TARGET = 14.0;
+				MARKETING_VERSION = 1.5;
 				PRODUCT_BUNDLE_IDENTIFIER = com.dockpops.companion;
 				SDKROOT = macosx;
 			};
@@ -531,13 +533,16 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				COMBINE_HIDPI_IMAGES = YES;
+				CURRENT_PROJECT_VERSION = 7;
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = "Sources/DockPopsCompanion/Support/DockPopsCompanion-Info.plist";
+				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.utilities";
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/../Frameworks",
 				);
 				MACOSX_DEPLOYMENT_TARGET = 14.0;
+				MARKETING_VERSION = 1.5;
 				PRODUCT_BUNDLE_IDENTIFIER = com.dockpops.companion;
 				SDKROOT = macosx;
 			};
