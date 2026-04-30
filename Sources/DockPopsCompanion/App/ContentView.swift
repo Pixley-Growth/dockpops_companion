@@ -8,6 +8,7 @@ import SwiftUI
 enum CompanionLayout {
     enum Window {
         static let launchSize = NSSize(width: 720, height: 460)
+        static let maximumContentSize = NSSize(width: 960, height: 620)
     }
 
     enum Content {
@@ -48,9 +49,10 @@ struct ContentView: View {
     var body: some View {
         ZStack(alignment: .top) {
             Color(nsColor: .windowBackgroundColor)
+                .ignoresSafeArea()
             screenContent
         }
-        .frame(maxWidth: .infinity)
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
         .task {
             model.start()
         }
@@ -86,7 +88,7 @@ struct ContentView: View {
                 readyPopletsStateView
             }
         }
-        .frame(maxWidth: .infinity, alignment: .top)
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
     }
 
     private var readyPopletsStateView: some View {
