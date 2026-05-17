@@ -154,7 +154,12 @@ final class CompanionModel {
         isRefreshing = true
         defer { isRefreshing = false }
 
-        let snapshot = syncService.sync()
+        // Run the file-I/O-heavy sync off the main actor so the window can
+        // paint (and its launching spinner animate) instead of beach-balling.
+        let service = syncService
+        let snapshot = await Task.detached(priority: .userInitiated) {
+            service.sync()
+        }.value
         apply(snapshot)
     }
 

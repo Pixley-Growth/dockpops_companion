@@ -3,14 +3,18 @@ import Darwin
 import Foundation
 import os
 
-@MainActor
-final class PopletSyncService {
+/// Not `@MainActor`: `sync()` is file-I/O heavy (poplet bundle writes, icon
+/// healing, `lsregister`) and must run off the main actor or it beach-balls the
+/// launch. The class is effectively immutable (all stored properties are `let`)
+/// and `refreshNow()` serializes calls, so `@unchecked Sendable` is sound.
+/// `requestSharedContainerAccess()` keeps its own `@MainActor` — it shows UI.
+final class PopletSyncService: @unchecked Sendable {
     private static let logger = Logger(subsystem: "com.dockpops.companion", category: "PopletSync")
     private static let popletAppIconName = "AppIcon"
     /// Bump when the poplet icon rendering recipe changes even if the source
     /// PopIcons PNG does not. This forces unopened poplets onto a fresh bundle
     /// version so Dock/Finder stop serving stale cached icons.
-    private static let popletIconRecipeVersion = 5
+    private static let popletIconRecipeVersion = 6
     private static let popletIconRecipeVersionInfoKey = "DockPopsIconRecipeVersion"
     private static let launchServicesRegisterPath =
         "/System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/LaunchServices.framework/Support/lsregister"
@@ -380,7 +384,9 @@ final class PopletSyncService {
 
     // Allows Launch Services to route Finder Dock drops to the poplet app. The
     // poplet then hands those URLs to DockPops for ingestion into its target Pop.
-    private static let popletDocumentTypes: [[String: Any]] = [
+    // `nonisolated(unsafe)`: an immutable plist constant the compiler cannot
+    // prove `Sendable` through `[String: Any]`; it is never mutated.
+    private nonisolated(unsafe) static let popletDocumentTypes: [[String: Any]] = [
         [
             "CFBundleTypeName": "Application",
             "CFBundleTypeRole": "Viewer",
@@ -399,11 +405,18 @@ final class PopletSyncService {
         let baseBuildVersion = currentCompanionBuildVersion()
         let popIconURL = paths.sharedPopIconsDirectoryURL.appending(path: "\(popID.uuidString).png")
         if let image = NSImage(contentsOf: popIconURL) {
-            // SACRED CODE:
-            // The shared PopIcons PNG is already the final composed app-icon art.
-            // The closed/baked app icon path must not inset it again. Doing so
-            // creates a double-padded ICNS that the Dock renders with a fat white
-            // plate around the poplet when it is not running.
+            // SACRED CODE — poplet icon inset.
+            // The closed/baked AppIcon.icns and the running poplet's live Dock
+            // tile (PopletLiveIconController) MUST apply the same 0.86
+            // presentation inset. If they diverge, closed poplets render with a
+            // white border that open ones don't have.
+            //
+            // Note: the DockPops PopIcons PNG already carries ~80% app-icon
+            // padding (DockIconCompositor.insetForDock). The 0.86 here is an
+            // extra inset on top — deliberate: on macOS 26 the un-inset baked
+            // ICNS sits flush against the Dock icon-container edge and shows a
+            // border. The extra inset pulls the art clear of it. The baked
+            // inset is applied in `generatedIconDataIfPossible`.
             return ResolvedPopletIcon(
                 image: image,
                 source: .popComposite,
@@ -517,6 +530,11 @@ final class PopletSyncService {
     private func generatedIconDataIfPossible(for image: NSImage?) throws -> Data? {
         guard let image else { return nil }
 
+        // SACRED — apply the same 0.86 presentation inset the live Dock tile
+        // uses so closed poplets render identically to open ones (no border).
+        // See the SACRED block in `resolvedPopletIcon`.
+        let presentationImage = image.normalizedPopletAppIcon() ?? image
+
         let tempRootURL = AppPaths.companionSupportDirectoryURL
             .appending(path: "IconBuild", directoryHint: .isDirectory)
             .appending(path: UUID().uuidString, directoryHint: .isDirectory)
@@ -540,7 +558,7 @@ final class PopletSyncService {
         ]
 
         for variant in iconVariants {
-            guard let data = image.pngRepresentation(squarePixelSize: variant.size) else {
+            guard let data = presentationImage.pngRepresentation(squarePixelSize: variant.size) else {
                 throw NSError(
                     domain: "DockPopsCompanion",
                     code: 2,
