@@ -53,7 +53,10 @@ private final class DockPopsPopletDelegate: NSObject, NSApplicationDelegate {
             await healer.healIfStale()
         }
 
-        openPop()
+        let isDefaultLaunch = (notification.userInfo?[NSApplication.launchIsDefaultUserInfoKey] as? Bool) ?? true
+        if isDefaultLaunch {
+            openPop()
+        }
     }
 
     func applicationWillTerminate(_ notification: Notification) {
@@ -63,6 +66,15 @@ private final class DockPopsPopletDelegate: NSObject, NSApplicationDelegate {
     func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool) -> Bool {
         openPop()
         return false
+    }
+
+    func application(_ sender: NSApplication, open urls: [URL]) {
+        guard !urls.isEmpty else { return }
+        prepareDockPopsForDrop()
+        Task { @MainActor in
+            try? await Task.sleep(for: .milliseconds(250))
+            forwardDroppedItemsToDockPops(urls)
+        }
     }
 
     @objc
@@ -85,10 +97,43 @@ private final class DockPopsPopletDelegate: NSObject, NSApplicationDelegate {
             URLQueryItem(name: "x", value: String(Double(mouse.x))),
             URLQueryItem(name: "y", value: String(Double(mouse.y))),
             URLQueryItem(name: "locked", value: "1"),
+            // A Poplet is a real Dock icon, not a Siri/Spotlight shortcut.
+            // `source=poplet` tells DockPops to anchor the popover at the
+            // supplied coordinates even when DockPops runs in Menu Bar mode
+            // — otherwise the popover wrongly opens at the menu bar.
+            URLQueryItem(name: "source", value: "poplet"),
         ]
 
         guard let url = components.url else { return }
         _ = NSWorkspace.shared.open(url)
+    }
+
+    private func prepareDockPopsForDrop() {
+        var components = URLComponents()
+        components.scheme = "dockpops"
+        components.host = "prepare-poplet-drop"
+        components.queryItems = [
+            URLQueryItem(name: "pop", value: rawPopID),
+        ]
+
+        guard let url = components.url else { return }
+        _ = NSWorkspace.shared.open(url)
+    }
+
+    private func forwardDroppedItemsToDockPops(_ urls: [URL]) {
+        guard
+            let dockPopsURL = NSWorkspace.shared.urlForApplication(
+                withBundleIdentifier: PopletSharedPaths.dockPopsBundleIdentifier
+            )
+        else { return }
+
+        let configuration = NSWorkspace.OpenConfiguration()
+        configuration.activates = true
+        NSWorkspace.shared.open(
+            urls,
+            withApplicationAt: dockPopsURL,
+            configuration: configuration
+        )
     }
 
     private func installMenu() {

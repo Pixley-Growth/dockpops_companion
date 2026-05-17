@@ -354,6 +354,7 @@ final class PopletSyncService {
                 "CFBundleShortVersionString": currentCompanionShortVersionString(),
                 "CFBundleSupportedPlatforms": ["MacOSX"],
                 "CFBundleVersion": resolvedIcon.bundleVersion,
+                "CFBundleDocumentTypes": Self.popletDocumentTypes,
                 "LSMinimumSystemVersion": "14.0",
                 "NSPrincipalClass": "NSApplication",
                 Self.popletIconRecipeVersionInfoKey: Self.popletIconRecipeVersion,
@@ -376,6 +377,23 @@ final class PopletSyncService {
             return resolvedIcon.source
         }
     }
+
+    // Allows Launch Services to route Finder Dock drops to the poplet app. The
+    // poplet then hands those URLs to DockPops for ingestion into its target Pop.
+    private static let popletDocumentTypes: [[String: Any]] = [
+        [
+            "CFBundleTypeName": "Application",
+            "CFBundleTypeRole": "Viewer",
+            "LSHandlerRank": "Alternate",
+            "LSItemContentTypes": ["com.apple.application-bundle"],
+        ],
+        [
+            "CFBundleTypeName": "File or Folder",
+            "CFBundleTypeRole": "Viewer",
+            "LSHandlerRank": "Alternate",
+            "LSItemContentTypes": ["public.item"],
+        ],
+    ]
 
     private func resolvedPopletIcon(for popID: UUID, paths: SharedContainerPaths) -> ResolvedPopletIcon {
         let baseBuildVersion = currentCompanionBuildVersion()
