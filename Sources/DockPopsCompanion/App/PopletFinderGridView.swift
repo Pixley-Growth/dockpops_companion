@@ -21,6 +21,18 @@ struct PopletFinderGridView: NSViewRepresentable {
         context.coordinator.reloadData()
     }
 
+    // SACRED CODE — see the SACRED block in DockPopsCompanionApp.swift.
+    // Returning the PROPOSED size (never the collection view's intrinsic
+    // content height) is what keeps this scroll view from inflating the window
+    // to fit every Pop row. The grid scrolls; it must never drive window size.
+    // Removing this method brings back the screen-tall-window bug.
+    func sizeThatFits(_ proposal: ProposedViewSize, nsView: NSScrollView, context: Context) -> CGSize? {
+        CGSize(
+            width: proposal.width ?? CompanionLayout.Window.defaultSize.width,
+            height: proposal.height ?? 200
+        )
+    }
+
     @MainActor
     final class Coordinator: NSObject, NSCollectionViewDataSource, NSCollectionViewDelegateFlowLayout {
         var parent: PopletFinderGridView

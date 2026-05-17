@@ -7,8 +7,14 @@ import SwiftUI
 /// visual tuning stays surgical instead of being spread across multiple files.
 enum CompanionLayout {
     enum Window {
-        static let launchSize = NSSize(width: 720, height: 460)
-        static let maximumContentSize = NSSize(width: 960, height: 620)
+        // SACRED CODE — window sizing. See the full SACRED block in
+        // DockPopsCompanionApp.swift. The window is resizable; what is fixed is
+        // its MINIMUM (`minSize`, applied as a hard `.frame` floor, never
+        // derived from content). `defaultSize` opens tall enough to show all
+        // 20 Pops (4 rows of 5) on a normal display and is clamped to the
+        // screen on smaller / scaled ones, where the grid scrolls instead.
+        static let defaultSize = NSSize(width: 720, height: 880)
+        static let minSize = NSSize(width: 560, height: 480)
     }
 
     enum Content {
@@ -21,24 +27,10 @@ enum CompanionLayout {
     }
 
     enum Grid {
-        static let assumedColumnCount = 5
         static let itemSize = NSSize(width: 112, height: 122)
         static let minimumInteritemSpacing: CGFloat = 14
         static let minimumLineSpacing: CGFloat = 18
         static let sectionInsets = NSEdgeInsets(top: 20, left: 20, bottom: 24, right: 20)
-
-        static let maxViewportHeight: CGFloat = 360
-
-        /// The AppKit collection view needs an explicit viewport height in the ready
-        /// state. Leaving it unconstrained lets the window learn an absurd "ideal"
-        /// height, which then gets restored across launches.
-        static func viewportHeight(for itemCount: Int) -> CGFloat {
-            let rowCount = max(1, Int(ceil(Double(itemCount) / Double(assumedColumnCount))))
-            let contentHeight = CGFloat(rowCount) * itemSize.height
-            let spacingHeight = CGFloat(max(0, rowCount - 1)) * minimumLineSpacing
-            let insetsHeight = sectionInsets.top + sectionInsets.bottom
-            return min(maxViewportHeight, contentHeight + spacingHeight + insetsHeight)
-        }
     }
 }
 
@@ -219,16 +211,15 @@ private struct ReadyPopletsStateView: View {
                 """
             )
 
+            // The grid fills the leftover height of the FIXED window and
+            // scrolls internally (NSScrollView) if Pops ever exceed 20. It can
+            // no longer inflate the window — the window is hard-pinned to
+            // CompanionLayout.Window.fixedSize. See SACRED block in the app file.
             PopletFinderGridView(poplets: poplets, selection: $selection)
-                .frame(
-                    maxWidth: .infinity,
-                    minHeight: CompanionLayout.Grid.viewportHeight(for: poplets.count),
-                    maxHeight: CompanionLayout.Grid.viewportHeight(for: poplets.count),
-                    alignment: .topLeading
-                )
+                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         }
         .padding(CompanionLayout.Content.outerPadding)
-        .frame(maxWidth: .infinity, alignment: .topLeading)
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
     }
 }
 
