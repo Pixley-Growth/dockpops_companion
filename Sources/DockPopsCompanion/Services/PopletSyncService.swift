@@ -14,7 +14,7 @@ final class PopletSyncService: @unchecked Sendable {
     /// Bump when the poplet icon rendering recipe changes even if the source
     /// PopIcons PNG does not. This forces unopened poplets onto a fresh bundle
     /// version so Dock/Finder stop serving stale cached icons.
-    private static let popletIconRecipeVersion = 6
+    private static let popletIconRecipeVersion = 8
     private static let popletIconRecipeVersionInfoKey = "DockPopsIconRecipeVersion"
     private static let launchServicesRegisterPath =
         "/System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/LaunchServices.framework/Support/lsregister"
@@ -405,18 +405,11 @@ final class PopletSyncService: @unchecked Sendable {
         let baseBuildVersion = currentCompanionBuildVersion()
         let popIconURL = paths.sharedPopIconsDirectoryURL.appending(path: "\(popID.uuidString).png")
         if let image = NSImage(contentsOf: popIconURL) {
-            // SACRED CODE — poplet icon inset.
-            // The closed/baked AppIcon.icns and the running poplet's live Dock
-            // tile (PopletLiveIconController) MUST apply the same 0.86
-            // presentation inset. If they diverge, closed poplets render with a
-            // white border that open ones don't have.
-            //
-            // Note: the DockPops PopIcons PNG already carries ~80% app-icon
-            // padding (DockIconCompositor.insetForDock). The 0.86 here is an
-            // extra inset on top — deliberate: on macOS 26 the un-inset baked
-            // ICNS sits flush against the Dock icon-container edge and shows a
-            // border. The extra inset pulls the art clear of it. The baked
-            // inset is applied in `generatedIconDataIfPossible`.
+            // SACRED CODE:
+            // The shared PopIcons PNG is already the final composed app-icon art.
+            // The closed/baked app icon path must not inset it again. Doing so
+            // creates a double-padded ICNS that the Dock renders with a fat white
+            // plate around the poplet when it is not running.
             return ResolvedPopletIcon(
                 image: image,
                 source: .popComposite,
@@ -530,11 +523,6 @@ final class PopletSyncService: @unchecked Sendable {
     private func generatedIconDataIfPossible(for image: NSImage?) throws -> Data? {
         guard let image else { return nil }
 
-        // SACRED — apply the same 0.86 presentation inset the live Dock tile
-        // uses so closed poplets render identically to open ones (no border).
-        // See the SACRED block in `resolvedPopletIcon`.
-        let presentationImage = image.normalizedPopletAppIcon() ?? image
-
         let tempRootURL = AppPaths.companionSupportDirectoryURL
             .appending(path: "IconBuild", directoryHint: .isDirectory)
             .appending(path: UUID().uuidString, directoryHint: .isDirectory)
@@ -558,7 +546,7 @@ final class PopletSyncService: @unchecked Sendable {
         ]
 
         for variant in iconVariants {
-            guard let data = presentationImage.pngRepresentation(squarePixelSize: variant.size) else {
+            guard let data = image.pngRepresentation(squarePixelSize: variant.size) else {
                 throw NSError(
                     domain: "DockPopsCompanion",
                     code: 2,

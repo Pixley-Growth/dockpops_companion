@@ -16,7 +16,7 @@ struct PopletBundleIconHealer: Sendable {
         category: "IconHealer"
     )
     private static let iconName = "AppIcon"
-    private static let iconRecipeVersion = 6
+    private static let iconRecipeVersion = 8
     private static let iconRecipeVersionInfoKey = "DockPopsIconRecipeVersion"
     private static let iconVariants: [(name: String, pixelSize: Int)] = [
         ("icon_16x16.png", 16),
@@ -107,15 +107,6 @@ struct PopletBundleIconHealer: Sendable {
             throw PopletIconError.imageLoadFailed(pngURL)
         }
 
-        // SACRED — apply the 0.86 presentation inset before resizing variants,
-        // matching the live Dock tile (PopletLiveIconController) and the
-        // Companion's baked icon. Without this the on-disk ICNS renders
-        // edge-to-edge and closed poplets show a white border. See the SACRED
-        // block in PopletSyncService.resolvedPopletIcon.
-        guard let normalizedImage = PopletIconRendering.normalizedCanvas(from: rawImage) else {
-            throw PopletIconError.imageLoadFailed(pngURL)
-        }
-
         let tempRoot = FileManager.default.temporaryDirectory
             .appending(
                 path: "DockPopsPoplet-\(UUID().uuidString)",
@@ -135,7 +126,7 @@ struct PopletBundleIconHealer: Sendable {
 
         for variant in Self.iconVariants {
             guard let data = PopletIconRendering.resizedPNGData(
-                from: normalizedImage,
+                from: rawImage,
                 pixelSize: variant.pixelSize
             ) else {
                 throw PopletIconError.iconsetVariantFailed(variant.name)
