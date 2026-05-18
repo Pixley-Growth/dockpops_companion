@@ -98,8 +98,10 @@ enum SharedContainerAccess {
             throw SharedContainerAccessError.userCancelled
         }
 
+        // runModal() returned .OK but yielded no URL — a failed selection, not
+        // a cancel. Surface it as an error instead of swallowing it silently.
         guard let selectedURL = panel.url?.standardizedFileURL else {
-            throw SharedContainerAccessError.userCancelled
+            throw SharedContainerAccessError.invalidSelection
         }
 
         guard isExpectedContainerURL(selectedURL) else {

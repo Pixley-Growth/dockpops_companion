@@ -101,6 +101,7 @@ struct ContentView: View {
             message: model.statusMessage,
             actionTitle: sharedAccessActionTitle,
             dockPopsFound: model.dockPopsFound,
+            isBusy: model.isRefreshing,
             onPrimaryAction: {
                 Task {
                     await runPrimaryAction()
@@ -243,6 +244,7 @@ private struct SharedAccessStateView: View {
     let message: String
     let actionTitle: String
     let dockPopsFound: Bool
+    let isBusy: Bool
     let onPrimaryAction: () -> Void
     let onOpenDockPops: () -> Void
 
@@ -271,13 +273,25 @@ private struct SharedAccessStateView: View {
             }
             .frame(maxWidth: 700)
 
-            HStack(spacing: 12) {
-                Button(actionTitle, action: onPrimaryAction)
-                    .buttonStyle(.borderedProminent)
+            if isBusy {
+                // After a grant, the first sync runs for several seconds while
+                // this screen is still up. Show progress so the grant doesn't
+                // look like it failed — and so there is no button to re-click.
+                HStack(spacing: 8) {
+                    ProgressView()
+                        .controlSize(.small)
+                    Text("Connecting…")
+                        .foregroundStyle(.secondary)
+                }
+            } else {
+                HStack(spacing: 12) {
+                    Button(actionTitle, action: onPrimaryAction)
+                        .buttonStyle(.borderedProminent)
 
-                if dockPopsFound {
-                    Button("Open DockPops", action: onOpenDockPops)
-                        .buttonStyle(.bordered)
+                    if dockPopsFound {
+                        Button("Open DockPops", action: onOpenDockPops)
+                            .buttonStyle(.bordered)
+                    }
                 }
             }
 

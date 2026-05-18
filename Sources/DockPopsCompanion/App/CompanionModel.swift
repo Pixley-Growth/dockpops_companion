@@ -133,6 +133,12 @@ final class CompanionModel {
     // MARK: - Actions
 
     func continueToSharedAccessPrompt() async {
+        // Re-entry guard. The first sync after a grant can take many seconds
+        // (it generates a bundle for every Pop), and the permission screen
+        // stays up the whole time. Without this guard a second click would
+        // pop another folder panel — the cause of the "took 3 tries" report.
+        guard !isRefreshing, !hasSharedFolderAccess else { return }
+
         do {
             try syncService.requestSharedContainerAccess()
             errorDescription = nil
