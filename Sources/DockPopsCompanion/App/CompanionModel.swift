@@ -66,50 +66,52 @@ final class CompanionModel {
 
     var statusTitle: String {
         if needsSharedAccessWarmup {
-            return "One quick setup step"
+            return String(localized: "One quick setup step", comment: "Status title: shared-folder access warmup")
         }
         if errorDescription != nil {
-            return "Allow DockPops Access"
+            return String(localized: "Allow DockPops Access", comment: "Status title: needs shared-folder access")
         }
         if !dockPopsFound {
-            return "DockPops not found"
+            return String(localized: "DockPops not found", comment: "Status title: DockPops app not installed")
         }
         if !hasSharedFolderAccess {
-            return "Allow DockPops Access"
+            return String(localized: "Allow DockPops Access", comment: "Status title: needs shared-folder access")
         }
         if !metadataAvailable {
-            return "Waiting for DockPops data"
+            return String(localized: "Waiting for DockPops data", comment: "Status title: no metadata yet")
         }
         if pops.isEmpty {
-            return "No Pops found yet"
+            return String(localized: "No Pops found yet", comment: "Status title: no Pops created yet")
         }
-        return "Poplets ready"
+        return String(localized: "Pop apps ready", comment: "Status title: Pop apps generated and ready")
     }
 
     var statusMessage: String {
         if !dockPopsFound {
-            return "Install or launch the App Store build of DockPops so the companion can locate it."
+            return String(localized: "Install or launch the App Store build of DockPops so the companion can locate it.", comment: "Status message: DockPops not found")
         }
         if needsSharedAccessWarmup {
-            return "The companion needs one-time access to DockPops' shared data folder. When you continue, that DockPops folder will open already selected, so you can just click Allow."
+            return String(localized: "The companion needs one-time access to DockPops' shared data folder. When you continue, that DockPops folder will open already selected, so you can just click Allow.", comment: "Status message: explains the one-time shared-folder access step")
         }
         if errorDescription != nil {
-            return "The DockPops shared folder will open already selected. Click Allow so this app can reconnect and keep itself in sync."
+            return String(localized: "The DockPops shared folder will open already selected. Click Allow so this app can reconnect and keep itself in sync.", comment: "Status message: reconnect after a shared-folder access error")
         }
         if !hasSharedFolderAccess {
-            return "Continue and then click Allow so this app can keep itself in sync."
+            return String(localized: "Continue and then click Allow so this app can keep itself in sync.", comment: "Status message: prompt to grant shared-folder access")
         }
         if !metadataAvailable {
-            return "Make or edit a Pop in DockPops. Pops you create or change there will appear here automatically."
+            return String(localized: "Make or edit a Pop in DockPops. Pops you create or change there will appear here automatically.", comment: "Status message: waiting for DockPops data")
         }
         if pops.isEmpty {
-            return "Create at least one Pop in DockPops. Pops you make or modify there will appear here automatically."
+            return String(localized: "Create at least one Pop in DockPops. Pops you make or modify there will appear here automatically.", comment: "Status message: no Pops created yet")
         }
-        return "Pops you make or modify in DockPops will appear here automatically. Then drag the ones you want into the Dock."
+        return String(localized: "Pops you make or modify in DockPops will appear here automatically. Then drag the ones you want into the Dock.", comment: "Status message: ready state")
     }
 
     var lastSyncText: String {
-        guard let lastSync else { return "Never" }
+        guard let lastSync else {
+            return String(localized: "Never", comment: "Last-sync time label when no sync has happened yet")
+        }
         return lastSync.formatted(date: .abbreviated, time: .standard)
     }
 

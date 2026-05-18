@@ -22,13 +22,13 @@ enum SharedContainerAccessError: LocalizedError, Equatable {
     var errorDescription: String? {
         switch self {
         case .permissionRequired:
-            return "Allow the DockPops shared folder so the companion can sync your Pops."
+            return String(localized: "Allow the DockPops shared folder so the companion can sync your Pops.", comment: "Shared-folder access error: permission needed")
         case .userCancelled:
-            return "Folder access was cancelled."
+            return String(localized: "Folder access was cancelled.", comment: "Shared-folder access error: user cancelled the panel")
         case .invalidSelection:
-            return "The DockPops folder should already be open. If it is not, choose group.com.dockpops.shared and click Allow."
+            return String(localized: "The DockPops folder should already be open. If it is not, choose group.com.dockpops.shared and click Allow.", comment: "Shared-folder access error: wrong folder chosen")
         case .unreadableBookmark:
-            return "The saved DockPops permission needs to be refreshed."
+            return String(localized: "The saved DockPops permission needs to be refreshed.", comment: "Shared-folder access error: stale security-scoped bookmark")
         }
     }
 }
@@ -80,11 +80,11 @@ enum SharedContainerAccess {
         let expectedURL = AppPaths.expectedGroupContainerURL
         let opensExactFolder = FileManager.default.fileExists(atPath: expectedURL.path)
 
-        panel.title = "Allow DockPops Access"
+        panel.title = String(localized: "Allow DockPops Access", comment: "Folder-access panel title")
         panel.message = opensExactFolder
-            ? "The DockPops shared folder is already open. Click Allow so the companion can sync your Pops."
-            : "Choose the DockPops shared folder so the companion can sync your Pops."
-        panel.prompt = "Allow"
+            ? String(localized: "The DockPops shared folder is already open. Click Allow so the companion can sync your Pops.", comment: "Folder-access panel message when the folder exists")
+            : String(localized: "Choose the DockPops shared folder so the companion can sync your Pops.", comment: "Folder-access panel message when the folder must be located")
+        panel.prompt = String(localized: "Allow", comment: "Folder-access panel default button")
         panel.directoryURL = opensExactFolder ? expectedURL : expectedURL.deletingLastPathComponent()
         panel.canChooseFiles = false
         panel.canChooseDirectories = true

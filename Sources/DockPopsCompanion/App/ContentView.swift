@@ -150,7 +150,7 @@ struct ContentView: View {
             .buttonStyle(.borderedProminent)
             .disabled(!model.dockPopsFound)
 
-            Button("Reveal Poplets in Finder") {
+            Button("Reveal Pop Apps in Finder") {
                 model.revealPopletsFolder()
             }
             .buttonStyle(.bordered)
@@ -162,11 +162,15 @@ struct ContentView: View {
     }
 
     private var primaryActionTitle: String {
-        model.isRefreshing ? "Refreshing…" : "Refresh"
+        model.isRefreshing
+            ? String(localized: "Refreshing…", comment: "Toolbar button label while a sync is running")
+            : String(localized: "Refresh", comment: "Toolbar button label to sync Pops")
     }
 
     private var sharedAccessActionTitle: String {
-        model.needsSharedAccessWarmup ? "Continue" : "Allow Access"
+        model.needsSharedAccessWarmup
+            ? String(localized: "Continue", comment: "Button to begin the shared-folder access step")
+            : String(localized: "Allow Access", comment: "Button to grant shared-folder access")
     }
 
     private var primaryActionDisabled: Bool {
@@ -208,7 +212,7 @@ private struct ReadyPopletsStateView: View {
                 message: """
                 You can drag as many of the icons below to your Dock. Any changes or Pops you add on the main app will show up here.
 
-                Refresh syncs poplet files and icons. Open poplets may need a quick relaunch to fully update.
+                Refresh syncs Pop app files and icons. Open Pop apps may need a quick relaunch to fully update.
                 """
             )
 
@@ -310,7 +314,7 @@ private struct SharedAccessStateView: View {
 
 private struct CompanionTitleBlock: View {
     let title: String
-    let message: String
+    let message: LocalizedStringKey
 
     var body: some View {
         VStack(alignment: .leading, spacing: CompanionLayout.Content.titleSpacing) {
@@ -381,7 +385,7 @@ private struct WorkflowGuideView: View {
                 GuideStepCard(
                     symbol: "square.grid.2x2.fill",
                     title: "They Show Up Here",
-                    detail: "This window refreshes with the latest Poplets from DockPops."
+                    detail: "This window refreshes with the latest Pop apps from DockPops."
                 )
 
                 GuideArrow()
@@ -396,8 +400,8 @@ private struct WorkflowGuideView: View {
 
 private struct GuideStepCard: View {
     let symbol: String
-    let title: String
-    let detail: String
+    let title: LocalizedStringKey
+    let detail: LocalizedStringKey
 
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
@@ -435,6 +439,12 @@ private struct GuideArrow: View {
 
 private struct DockDropCard: View {
     let emphasized: Bool
+
+    private var detail: LocalizedStringKey {
+        emphasized
+            ? "Pick any Pop app here and drag it straight into the Dock to pin it."
+            : "When your Pops show up here, drag the Pop apps you want into the Dock."
+    }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
@@ -476,11 +486,7 @@ private struct DockDropCard: View {
             Text("Drag to the Dock")
                 .font(.headline.weight(.semibold))
 
-            Text(
-                emphasized
-                ? "Pick any Poplet here and drag it straight into the Dock to pin it."
-                : "When your Pops show up here, drag the Poplets you want into the Dock."
-            )
+            Text(detail)
             .font(.subheadline)
             .foregroundStyle(.secondary)
             .fixedSize(horizontal: false, vertical: true)
