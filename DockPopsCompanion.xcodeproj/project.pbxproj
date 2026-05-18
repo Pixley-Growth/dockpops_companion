@@ -12,6 +12,7 @@
 		34EF176D0E128B6D1110F1E9 /* DockPopsPopletMain.swift in Sources */ = {isa = PBXBuildFile; fileRef = 855BDB0B404A9C60D9007DB4 /* DockPopsPopletMain.swift */; };
 		3A87B3E2EBA5CDFCA47A15B1 /* SharedPopStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3C640986E5669907988DDE94 /* SharedPopStore.swift */; };
 		48D3D75BF1E10FFBBD476C93 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = FCF0E9127F3C44E81B14B3B3 /* Assets.xcassets */; };
+		D0C57A710CA7A10000000001 /* Localizable.xcstrings in Resources */ = {isa = PBXBuildFile; fileRef = D0C57A710CA7A10000000002 /* Localizable.xcstrings */; };
 		4B831345F40DB7399938276F /* PopletLiveIconController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 89C5F587BF61758FDCF0F18E /* PopletLiveIconController.swift */; };
 		522B475BD4A8345FCD563F66 /* PopletIconView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9E5D91F351285A8A82DDE96F /* PopletIconView.swift */; };
 		6908134615AD796F0841A477 /* PopletStatus.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9FB099EAF70E6CE380F609A2 /* PopletStatus.swift */; };
@@ -72,6 +73,7 @@
 		E815062176D2BCF1BD6042D9 /* PopletIconRendering.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PopletIconRendering.swift; sourceTree = "<group>"; };
 		FAA48AF09EEFA578AAFD41B9 /* PopletSharedPaths.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PopletSharedPaths.swift; sourceTree = "<group>"; };
 		FCF0E9127F3C44E81B14B3B3 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
+		D0C57A710CA7A10000000002 /* Localizable.xcstrings */ = {isa = PBXFileReference; lastKnownFileType = text.json.xcstrings; path = Localizable.xcstrings; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -100,6 +102,7 @@
 			children = (
 				53BDC7753492833312BF6FDC /* Sources */,
 				FCF0E9127F3C44E81B14B3B3 /* Assets.xcassets */,
+				D0C57A710CA7A10000000002 /* Localizable.xcstrings */,
 				102C11208869EFC9F9BE69BD /* Products */,
 			);
 			sourceTree = "<group>";
@@ -249,6 +252,8 @@
 			knownRegions = (
 				Base,
 				en,
+				de,
+				"es-419",
 			);
 			mainGroup = 33F0B1972284514B90DA6578;
 			minimizedProjectReferenceProxies = 1;
@@ -270,6 +275,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				48D3D75BF1E10FFBBD476C93 /* Assets.xcassets in Resources */,
+				D0C57A710CA7A10000000001 /* Localizable.xcstrings in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
