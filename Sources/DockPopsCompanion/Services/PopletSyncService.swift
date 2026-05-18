@@ -14,7 +14,7 @@ final class PopletSyncService: @unchecked Sendable {
     /// Bump when the poplet icon rendering recipe changes even if the source
     /// PopIcons PNG does not. This forces unopened poplets onto a fresh bundle
     /// version so Dock/Finder stop serving stale cached icons.
-    private static let popletIconRecipeVersion = 9
+    private static let popletIconRecipeVersion = 11
     private static let popletIconRecipeVersionInfoKey = "DockPopsIconRecipeVersion"
     private static let launchServicesRegisterPath =
         "/System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/LaunchServices.framework/Support/lsregister"
@@ -389,6 +389,7 @@ final class PopletSyncService: @unchecked Sendable {
 
             try signGeneratedPopletBundle(at: stagingBundleURL)
             try installGeneratedPopletBundle(at: stagingBundleURL, destinationURL: bundleURL)
+            applyFinderCustomIconIfPossible(resolvedIcon.image, to: bundleURL)
             refreshWorkspaceViews(for: bundleURL)
             return resolvedIcon.source
         }
@@ -417,11 +418,10 @@ final class PopletSyncService: @unchecked Sendable {
         let baseBuildVersion = currentCompanionBuildVersion()
         let popIconURL = paths.sharedPopIconsDirectoryURL.appending(path: "\(popID.uuidString).png")
         if let image = NSImage(contentsOf: popIconURL) {
-            // SACRED CODE:
             // The shared PopIcons PNG is already the final composed app-icon art.
-            // The closed/baked app icon path must not inset it again. Doing so
-            // creates a double-padded ICNS that the Dock renders with a fat white
-            // plate around the poplet when it is not running.
+            // Keep the baked ICNS raw; Tahoe's closed-app renderer may still add
+            // a system plate, so generated bundles also get a Finder custom icon
+            // after signing to make the at-rest Dock tile use the raw artwork.
             return ResolvedPopletIcon(
                 image: image,
                 source: .popComposite,
@@ -713,6 +713,21 @@ final class PopletSyncService: @unchecked Sendable {
             let message = String(cString: strerror(removalError))
             Self.logger.error("Unable to clear Finder icon metadata for \(bundleURL.lastPathComponent, privacy: .public): \(message, privacy: .public)")
         }
+    }
+
+    private func applyFinderCustomIconIfPossible(_ image: NSImage?, to bundleURL: URL) {
+        guard let image else { return }
+        let presentationIcon = image.normalizedPopletAppIcon() ?? image
+
+        // This intentionally runs after signing: Finder custom icons are stored
+        // in resource-fork/FinderInfo metadata, which codesign rejects.
+        guard NSWorkspace.shared.setIcon(presentationIcon, forFile: bundleURL.path, options: []) else {
+            Self.logger.error(
+                "Unable to apply Finder custom icon for \(bundleURL.lastPathComponent, privacy: .public)"
+            )
+            return
+        }
+        NSWorkspace.shared.noteFileSystemChanged(bundleURL.path)
     }
 
     private func signGeneratedPopletBundle(at bundleURL: URL) throws {

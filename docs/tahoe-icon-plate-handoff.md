@@ -1,6 +1,6 @@
 # Handoff: macOS 26 Tahoe white-plate on closed poplet Dock icons
 
-**Status:** UNSOLVED. This is a handoff for a fresh investigator.
+**Status:** ROOT CAUSE ISOLATED; workaround implemented in recipe version 11.
 **Date:** 2026-05-17
 
 ## The bug
@@ -45,6 +45,15 @@ Companion in `~/Applications/DockPops/`, with a hand-written `Info.plist`.
    `CFBundleIconName`, `DT*` Info.plist keys, Developer ID signing, and a classic
    10-slot `AppIcon.appiconset` whose `Contents.json` is byte-structurally
    identical to what the Companion generates.
+5. **The generated `.icns` is clean, but `NSWorkspace.icon(forFile:)` plates it.**
+   Extracting `Contents/Resources/AppIcon.icns` from `Utilities 2.app` showed raw
+   poplet art with no outer white/gray plate. Exporting the same bundle through
+   `NSWorkspace.shared.icon(forFile:)` produced the plated icon, which isolates
+   the defect to macOS' static app-icon rendering path.
+6. **Finder custom icons bypass the static app-icon plate.** Applying the source
+   PopIcons PNG to a temp copy with `NSWorkspace.shared.setIcon(_:forFile:)`
+   made `NSWorkspace.icon(forFile:)` render clean raw artwork. This is the same
+   kind of escape hatch as the running `NSApp.applicationIconImage` path.
 
 ## Everything tried — and the result
 
@@ -58,10 +67,14 @@ Companion in `~/Applications/DockPops/`, with a hand-written `Info.plist`.
 | 6 | Add `DT*` Info.plist keys (`DTSDKName`, `DTSDKBuild`, `DTPlatformName`, `DTPlatformVersion`, `DTXcode`, `DTXcodeBuild`, `BuildMachineOSBuild`) copied from Main | Plate **persisted**. |
 | 7 | `killall Dock` (flush the Dock icon cache) | Plate **persisted**. |
 | 8 | Build a properly-shaped `.icns` by hand: art inset to `824/1024` + clipped to a rounded rect (corner radius = inset edge × `0.2237`) on a transparent canvas — i.e. the *exact* transform the working open-icon path uses (`PopletIconRendering.normalizedCanvas`) — swap it in as a plain `.icns` | Plate **persisted**. This disproves the "art geometry" root cause. |
+| 9 | Export `NSWorkspace.icon(forFile:)` for a generated poplet whose source PNG and extracted `.icns` are clean | Export **included the plate**. This proves IconServices / the static app-icon path is adding it. |
+| 10 | Apply the source PNG as a Finder custom icon with `NSWorkspace.shared.setIcon` after bundle creation | Export rendered **clean, no plate**. This is the implemented workaround. |
+| 11 | Build/export a minimal Tahoe `.icon` with Icon Composer tooling from the flat source PNG | Export gained its own glass/white enclosure treatment. Not selected. |
 
 **Net:** ruled out — ad-hoc vs Developer ID signing; `Assets.car`/`CFBundleIconName`
 presence; `DT*` keys; SDK version; icon cache; icon art geometry (square vs
-inset-squircle). None of these is the trigger.
+inset-squircle). The trigger is the macOS static bundle-icon rendering path;
+Finder custom icons bypass that path.
 
 ## What works (reference): the open-icon path
 
@@ -72,13 +85,26 @@ A **running** poplet sets `NSApp.applicationIconImage` from
 path simply does not go through whatever static-icon mechanism plates the
 closed bundle.
 
-## Untried / open hypotheses for the next investigator
+## Implemented workaround
 
-- **The real macOS 26 `.icon` (Icon Composer) format.** Never attempted. A
-  classic PNG `.appiconset` compiled by `actool` was tried (attempt 3) and did
-  not work. Tahoe-native plate-free icons may *require* a true layered `.icon`
-  asset. Authoring one at runtime from a flat PNG is unproven / may be
-  impractical.
+Generated poplets now keep their clean `AppIcon.icns` / `Assets.car`, sign the
+bundle, install it, then apply the same source image on a `0.86` presentation
+canvas as a Finder custom icon via `NSWorkspace.shared.setIcon`. The ordering
+matters: Finder custom icons are stored as `Icon\r`, resource-fork, and
+`com.apple.FinderInfo` metadata, and `codesign --strict` rejects that metadata.
+Applying the custom icon after signing keeps local launches working while
+bypassing the Tahoe plate renderer.
+
+The poplet self-healer now mirrors that ordering: clear any existing Finder
+custom icon metadata, regenerate `AppIcon.icns`, re-sign the bundle, then
+reapply the Finder custom icon and nudge Launch Services.
+
+## Deprioritized hypotheses
+
+- **The real macOS 26 `.icon` (Icon Composer) format.** A minimal flat `.icon`
+  export was tried and added its own glass/white enclosure. A hand-authored,
+  multi-layer document might still behave differently, but authoring that at
+  runtime from a flat PopIcons PNG is likely impractical.
 - **Launch Services classification.** Dump the poplet's LS entry:
   `lsregister -dump | grep -A40 -i 'Utilities 2'` and compare to a non-plated
   app. Maybe LS classifies the runtime-generated bundle in a way that triggers
@@ -88,6 +114,8 @@ closed bundle.
   location, missing keys a normally-built app has, or the absence of a real
   build provenance.
 - **Quarantine / `com.apple.FinderInfo` / custom-icon xattr** on the bundle.
+  This became the workaround rather than the cause: setting Finder custom-icon
+  metadata makes the rendered icon clean.
 - **A definitive field-by-field diff** of a poplet vs a non-plated app's full
   `Info.plist`, signature, entitlements, and Mach-O — was attempted by an agent
   but did not isolate the cause; redo it exhaustively.
@@ -108,16 +136,18 @@ on a fresh poplet. The other 19 poplets are in the `c22bf38` state
 - `generatedIconDataIfPossible` — bakes `AppIcon.icns` via `iconutil`.
 - `generatedAssetCatalogDataIfPossible` — compiles `Assets.car` via `actool`.
 - `popletIconRecipeVersion` — bump to force existing poplets to re-bake.
-- Misleading `SACRED CODE` comment in `resolvedPopletIcon` (says "do not inset
-  the baked art") — its premise is now in doubt.
+- `applyFinderCustomIconIfPossible` — applies the source image as a Finder
+  custom icon after signing/installing, bypassing Tahoe's static app-icon plate.
 
 `Sources/DockPopsPoplet/PopletBundleIconHealer.swift`
 - `regenerateICNS` — the poplet self-heal path; re-bakes `AppIcon.icns` on launch.
+- `clearFinderCustomIconIfPresent` / `applyFinderCustomIconIfPossible` — clear
+  custom icon metadata before re-signing, then reapply it after signing.
 
 `Sources/DockPopsPoplet/PopletIconRendering.swift`
 - `normalizedCanvas` — the **working** open-icon transform (inset + rounded-rect clip).
 
-`Sources/DockPopsCompanion/App/PopletLiveIconController.swift`
+`Sources/DockPopsPoplet/PopletLiveIconController.swift`
 - Sets `NSApp.applicationIconImage` for the running poplet (works, no plate).
 
 ## Icon-related commits on `main`

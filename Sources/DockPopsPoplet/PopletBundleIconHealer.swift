@@ -1,3 +1,4 @@
+import AppKit
 import Darwin
 import Foundation
 import os
@@ -8,15 +9,15 @@ import os
 /// current icon.
 ///
 /// Intentionally runs off the main actor so launch isn't blocked by iconutil /
-/// codesign. Uses `CGImage` + `ImageIO` (Sendable-friendly) rather than NSImage
-/// so Swift 6 concurrency is happy.
+/// codesign. ICNS regeneration uses `CGImage` + `ImageIO`; the Finder custom
+/// icon handoff hops to the main actor because it uses NSWorkspace.
 struct PopletBundleIconHealer: Sendable {
     private static let logger = Logger(
         subsystem: "com.dockpops.companion.poplet",
         category: "IconHealer"
     )
     private static let iconName = "AppIcon"
-    private static let iconRecipeVersion = 9
+    private static let iconRecipeVersion = 11
     private static let iconRecipeVersionInfoKey = "DockPopsIconRecipeVersion"
     private static let iconVariants: [(name: String, pixelSize: Int)] = [
         ("icon_16x16.png", 16),
@@ -68,8 +69,10 @@ struct PopletBundleIconHealer: Sendable {
         guard FileManager.default.fileExists(atPath: sourcePNG.path) else { return }
         guard try sourceIsNewer(source: sourcePNG, target: targetICNS) else { return }
 
+        try await clearFinderCustomIconIfPresent()
         try regenerateICNS(from: sourcePNG, to: targetICNS)
         try signBundle(at: bundleURL)
+        await applyFinderCustomIconIfPossible(from: sourcePNG)
         registerWithLaunchServices(bundleURL: bundleURL)
 
         Self.logger.info(
@@ -145,6 +148,57 @@ struct PopletBundleIconHealer: Sendable {
 
         let icnsData = try Data(contentsOf: builtICNSURL)
         try icnsData.write(to: icnsURL, options: .atomic)
+    }
+
+    @MainActor
+    private func clearFinderCustomIconIfPresent() throws {
+        _ = NSWorkspace.shared.setIcon(nil, forFile: bundleURL.path, options: [])
+
+        let iconFileURL = bundleURL.appending(path: "Icon\r")
+        if FileManager.default.fileExists(atPath: iconFileURL.path) {
+            try? FileManager.default.removeItem(at: iconFileURL)
+        }
+
+        let removalError: Int32 = bundleURL.withUnsafeFileSystemRepresentation { path in
+            guard let path else { return EINVAL }
+            if Darwin.removexattr(path, "com.apple.FinderInfo", 0) == 0 {
+                return 0
+            }
+            return errno
+        }
+
+        if removalError != 0 && removalError != ENOATTR {
+            throw POSIXError(POSIXErrorCode(rawValue: removalError) ?? .EIO)
+        }
+    }
+
+    @MainActor
+    private func applyFinderCustomIconIfPossible(from pngURL: URL) {
+        let image: NSImage
+        if
+            let rawImage = PopletIconRendering.loadImage(at: pngURL),
+            let normalized = PopletIconRendering.normalizedCanvas(from: rawImage)
+        {
+            image = NSImage(
+                cgImage: normalized,
+                size: NSSize(width: CGFloat(normalized.width), height: CGFloat(normalized.height))
+            )
+        } else if let loadedImage = NSImage(contentsOf: pngURL) {
+            image = loadedImage
+        } else {
+            Self.logger.error(
+                "custom icon image load failed for \(bundleURL.lastPathComponent, privacy: .public): \(pngURL.path, privacy: .public)"
+            )
+            return
+        }
+
+        guard NSWorkspace.shared.setIcon(image, forFile: bundleURL.path, options: []) else {
+            Self.logger.error(
+                "custom icon apply failed for \(bundleURL.lastPathComponent, privacy: .public)"
+            )
+            return
+        }
+        NSWorkspace.shared.noteFileSystemChanged(bundleURL.path)
     }
 
     private func signBundle(at url: URL) throws {

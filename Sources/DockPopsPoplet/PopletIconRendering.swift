@@ -4,15 +4,13 @@ import ImageIO
 import UniformTypeIdentifiers
 
 /// Image-pipeline helpers for poplet icon rendering. `normalizedCanvas` shapes
-/// the running poplet's live Dock tile to match DockPops Main's live tile
-/// (`DockIconCompositor.insetAndMaskForDock`): inset, then rounded-rect mask.
+/// poplet Dock tiles on a standard app-icon presentation canvas: inset, then
+/// rounded-rect mask.
 enum PopletIconRendering {
     static let canvasSize: Int = 1024
-    /// Matches Main's `insetForDock` — an 824px icon on a 1024 canvas — so the
-    /// running poplet's Dock tile is sized like Main's.
-    static let contentScale: CGFloat = 824.0 / 1024.0
-    /// Matches Main's `insetAndMaskForDock` rounded-rect corner radius
-    /// (`insetEdge * 0.2237`, circular-arc curve).
+    /// Keeps poplet artwork visually aligned with standard macOS Dock icons.
+    static let contentScale: CGFloat = 0.86
+    /// Rounded-rect corner radius (`insetEdge * 0.2237`, circular-arc curve).
     static let cornerRadiusRatio: CGFloat = 0.2237
 
     static func loadImage(at url: URL) -> CGImage? {
@@ -25,10 +23,8 @@ enum PopletIconRendering {
         return CGImageSourceCreateImageAtIndex(source, 0, nil)
     }
 
-    /// Renders the live Dock tile the way DockPops Main renders its own
-    /// (`insetAndMaskForDock`): the full-bleed `PopIcons` art is inset to
-    /// `contentScale` of the canvas and clipped to a rounded rect so the
-    /// running poplet's corner shape matches Main's.
+    /// Renders the full-bleed `PopIcons` art on a presentation canvas so open
+    /// and closed poplet Dock tiles share the same visual size.
     static func normalizedCanvas(from source: CGImage) -> CGImage? {
         let canvas = CGFloat(canvasSize)
         let contentEdge = canvas * contentScale

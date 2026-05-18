@@ -54,7 +54,8 @@ extension NSImage {
 
     func normalizedPopletAppIcon(
         canvasSize: CGFloat = 1024,
-        contentScale: CGFloat = 0.86
+        contentScale: CGFloat = 0.86,
+        cornerRadiusRatio: CGFloat = 0.2237
     ) -> NSImage? {
         guard let cgImage = resolvedCGImage else { return nil }
 
@@ -81,6 +82,15 @@ extension NSImage {
 
         context.interpolationQuality = .high
         context.clear(CGRect(x: 0, y: 0, width: canvasSize, height: canvasSize))
+        let cornerRadius = targetRect.width * cornerRadiusRatio
+        let mask = CGPath(
+            roundedRect: targetRect,
+            cornerWidth: cornerRadius,
+            cornerHeight: cornerRadius,
+            transform: nil
+        )
+        context.addPath(mask)
+        context.clip()
         context.draw(cgImage, in: targetRect)
 
         guard let outputImage = context.makeImage() else { return nil }
