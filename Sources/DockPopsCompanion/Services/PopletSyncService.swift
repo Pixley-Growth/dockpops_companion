@@ -14,7 +14,7 @@ final class PopletSyncService: @unchecked Sendable {
     /// Bump when the poplet icon rendering recipe changes even if the source
     /// PopIcons PNG does not. This forces unopened poplets onto a fresh bundle
     /// version so Dock/Finder stop serving stale cached icons.
-    private static let popletIconRecipeVersion = 8
+    private static let popletIconRecipeVersion = 9
     private static let popletIconRecipeVersionInfoKey = "DockPopsIconRecipeVersion"
     private static let launchServicesRegisterPath =
         "/System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/LaunchServices.framework/Support/lsregister"
@@ -333,6 +333,9 @@ final class PopletSyncService: @unchecked Sendable {
             let infoPlistURL = contentsURL.appending(path: "Info.plist")
             let pkgInfoURL = contentsURL.appending(path: "PkgInfo")
             let iconData = try generatedIconDataIfPossible(for: resolvedIcon.image)
+            // macOS 26 plate-free icon: compiled asset catalog + CFBundleIconName.
+            // nil when actool is unavailable — the bundle falls back to .icns only.
+            let assetCatalogData = generatedAssetCatalogDataIfPossible(for: resolvedIcon.image)
 
             if fileManager.fileExists(atPath: stagingBundleURL.path) {
                 try fileManager.removeItem(at: stagingBundleURL)
@@ -367,12 +370,21 @@ final class PopletSyncService: @unchecked Sendable {
             if iconData != nil {
                 plist["CFBundleIconFile"] = Self.popletAppIconName
             }
+            if assetCatalogData != nil {
+                plist["CFBundleIconName"] = Self.popletAppIconName
+            }
             let plistData = try PropertyListSerialization.data(fromPropertyList: plist, format: .xml, options: 0)
             try plistData.write(to: infoPlistURL, options: .atomic)
             try Data("APPL????".utf8).write(to: pkgInfoURL, options: .atomic)
 
             if let iconData {
                 try iconData.write(to: appIconURL, options: .atomic)
+            }
+            if let assetCatalogData {
+                try assetCatalogData.write(
+                    to: resourcesURL.appending(path: "Assets.car"),
+                    options: .atomic
+                )
             }
 
             try signGeneratedPopletBundle(at: stagingBundleURL)
@@ -571,6 +583,116 @@ final class PopletSyncService: @unchecked Sendable {
         }
 
         return try Data(contentsOf: icnsURL)
+    }
+
+    /// Contents.json for the staged `AppIcon.appiconset`. Filenames match the
+    /// variant PNGs written alongside it.
+    private static let appIconAssetCatalogContentsJSON = """
+    {
+      "images" : [
+        { "idiom" : "mac", "scale" : "1x", "size" : "16x16", "filename" : "icon_16x16.png" },
+        { "idiom" : "mac", "scale" : "2x", "size" : "16x16", "filename" : "icon_16x16@2x.png" },
+        { "idiom" : "mac", "scale" : "1x", "size" : "32x32", "filename" : "icon_32x32.png" },
+        { "idiom" : "mac", "scale" : "2x", "size" : "32x32", "filename" : "icon_32x32@2x.png" },
+        { "idiom" : "mac", "scale" : "1x", "size" : "128x128", "filename" : "icon_128x128.png" },
+        { "idiom" : "mac", "scale" : "2x", "size" : "128x128", "filename" : "icon_128x128@2x.png" },
+        { "idiom" : "mac", "scale" : "1x", "size" : "256x256", "filename" : "icon_256x256.png" },
+        { "idiom" : "mac", "scale" : "2x", "size" : "256x256", "filename" : "icon_256x256@2x.png" },
+        { "idiom" : "mac", "scale" : "1x", "size" : "512x512", "filename" : "icon_512x512.png" },
+        { "idiom" : "mac", "scale" : "2x", "size" : "512x512", "filename" : "icon_512x512@2x.png" }
+      ],
+      "info" : { "author" : "xcode", "version" : 1 }
+    }
+    """
+
+    /// Locates `actool` without triggering the Command Line Tools installer
+    /// prompt that `xcrun` would raise on a machine with no developer tools.
+    private func locateActool() -> URL? {
+        guard
+            let result = try? runProcess(executablePath: "/usr/bin/xcode-select", arguments: ["-p"]),
+            result.terminationStatus == 0
+        else {
+            return nil
+        }
+        let developerDir = result.output.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !developerDir.isEmpty else { return nil }
+        let actoolURL = URL(fileURLWithPath: developerDir)
+            .appending(path: "usr", directoryHint: .isDirectory)
+            .appending(path: "bin", directoryHint: .isDirectory)
+            .appending(path: "actool")
+        return fileManager.fileExists(atPath: actoolURL.path) ? actoolURL : nil
+    }
+
+    /// Compiles the Pop icon into an `Assets.car` asset catalog via `actool`.
+    ///
+    /// macOS 26 (Tahoe) draws a legacy `.icns`-only app icon inside a white
+    /// system "plate". A compiled asset catalog plus `CFBundleIconName` makes
+    /// Tahoe render the poplet edge-to-edge like a normal app icon.
+    ///
+    /// Returns `nil` when `actool` is unavailable (no Xcode / Command Line
+    /// Tools) or fails — the caller then falls back to the `.icns`-only bundle,
+    /// which works everywhere except for the Tahoe plate.
+    private func generatedAssetCatalogDataIfPossible(for image: NSImage?) -> Data? {
+        guard let image, let actoolURL = locateActool() else { return nil }
+
+        let tempRootURL = AppPaths.companionSupportDirectoryURL
+            .appending(path: "AssetCatalogBuild", directoryHint: .isDirectory)
+            .appending(path: UUID().uuidString, directoryHint: .isDirectory)
+        let catalogURL = tempRootURL.appending(path: "Assets.xcassets", directoryHint: .isDirectory)
+        let iconSetURL = catalogURL.appending(path: "\(Self.popletAppIconName).appiconset", directoryHint: .isDirectory)
+        let compileURL = tempRootURL.appending(path: "compiled", directoryHint: .isDirectory)
+        let partialPlistURL = tempRootURL.appending(path: "partial-info.plist")
+
+        let iconVariants: [(name: String, size: Int)] = [
+            ("icon_16x16.png", 16), ("icon_16x16@2x.png", 32),
+            ("icon_32x32.png", 32), ("icon_32x32@2x.png", 64),
+            ("icon_128x128.png", 128), ("icon_128x128@2x.png", 256),
+            ("icon_256x256.png", 256), ("icon_256x256@2x.png", 512),
+            ("icon_512x512.png", 512), ("icon_512x512@2x.png", 1024),
+        ]
+
+        do {
+            try ensureDirectory(iconSetURL)
+            try ensureDirectory(compileURL)
+            defer { try? fileManager.removeItem(at: tempRootURL) }
+
+            try Data(Self.appIconAssetCatalogContentsJSON.utf8)
+                .write(to: iconSetURL.appending(path: "Contents.json"), options: .atomic)
+
+            for variant in iconVariants {
+                guard let data = image.pngRepresentation(squarePixelSize: variant.size) else {
+                    return nil
+                }
+                try data.write(to: iconSetURL.appending(path: variant.name), options: .atomic)
+            }
+
+            let result = try runProcess(
+                executablePath: actoolURL.path,
+                arguments: [
+                    catalogURL.path,
+                    "--compile", compileURL.path,
+                    "--platform", "macosx",
+                    "--minimum-deployment-target", "14.0",
+                    "--app-icon", Self.popletAppIconName,
+                    "--output-partial-info-plist", partialPlistURL.path,
+                    "--errors", "--warnings",
+                ]
+            )
+            guard result.terminationStatus == 0 else {
+                Self.logger.error("actool failed for poplet asset catalog: \(result.output, privacy: .public)")
+                return nil
+            }
+
+            let compiledCatalogURL = compileURL.appending(path: "Assets.car")
+            guard fileManager.fileExists(atPath: compiledCatalogURL.path) else {
+                Self.logger.error("actool produced no Assets.car")
+                return nil
+            }
+            return try Data(contentsOf: compiledCatalogURL)
+        } catch {
+            Self.logger.error("Unable to build poplet asset catalog: \(error.localizedDescription, privacy: .public)")
+            return nil
+        }
     }
 
     private func removeLegacyCustomIconArtifacts(from bundleURL: URL) throws {
