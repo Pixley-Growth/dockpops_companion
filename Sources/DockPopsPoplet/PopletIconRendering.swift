@@ -3,13 +3,17 @@ import Foundation
 import ImageIO
 import UniformTypeIdentifiers
 
-/// Image-pipeline helpers shared by the live Dock tile path and the on-disk
-/// ICNS healer. The shared `PopIcons` PNG is already the final composed app
-/// icon art, but it still needs a transparent presentation margin so the live
-/// Dock tile and baked ICNS match the intended app-icon size.
+/// Image-pipeline helpers for poplet icon rendering. `normalizedCanvas` shapes
+/// the running poplet's live Dock tile to match DockPops Main's live tile
+/// (`DockIconCompositor.insetAndMaskForDock`): inset, then rounded-rect mask.
 enum PopletIconRendering {
     static let canvasSize: Int = 1024
-    static let contentScale: CGFloat = 0.86
+    /// Matches Main's `insetForDock` — an 824px icon on a 1024 canvas — so the
+    /// running poplet's Dock tile is sized like Main's.
+    static let contentScale: CGFloat = 824.0 / 1024.0
+    /// Matches Main's `insetAndMaskForDock` rounded-rect corner radius
+    /// (`insetEdge * 0.2237`, circular-arc curve).
+    static let cornerRadiusRatio: CGFloat = 0.2237
 
     static func loadImage(at url: URL) -> CGImage? {
         guard let source = CGImageSourceCreateWithURL(url as CFURL, nil) else { return nil }
@@ -21,15 +25,15 @@ enum PopletIconRendering {
         return CGImageSourceCreateImageAtIndex(source, 0, nil)
     }
 
+    /// Renders the live Dock tile the way DockPops Main renders its own
+    /// (`insetAndMaskForDock`): the full-bleed `PopIcons` art is inset to
+    /// `contentScale` of the canvas and clipped to a rounded rect so the
+    /// running poplet's corner shape matches Main's.
     static func normalizedCanvas(from source: CGImage) -> CGImage? {
         let canvas = CGFloat(canvasSize)
-        let inset = (canvas - (canvas * contentScale)) / 2
-        let targetRect = CGRect(
-            x: inset,
-            y: inset,
-            width: canvas * contentScale,
-            height: canvas * contentScale
-        )
+        let contentEdge = canvas * contentScale
+        let inset = (canvas - contentEdge) / 2
+        let targetRect = CGRect(x: inset, y: inset, width: contentEdge, height: contentEdge)
 
         guard
             let context = CGContext(
@@ -47,6 +51,16 @@ enum PopletIconRendering {
 
         context.interpolationQuality = .high
         context.clear(CGRect(x: 0, y: 0, width: canvasSize, height: canvasSize))
+
+        let cornerRadius = contentEdge * cornerRadiusRatio
+        let mask = CGPath(
+            roundedRect: targetRect,
+            cornerWidth: cornerRadius,
+            cornerHeight: cornerRadius,
+            transform: nil
+        )
+        context.addPath(mask)
+        context.clip()
         context.draw(source, in: targetRect)
         return context.makeImage()
     }
