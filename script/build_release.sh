@@ -63,7 +63,7 @@ echo "Re-signing embedded helper"
   --force \
   --sign "$SIGNING_HASH" \
   -o runtime \
-  --timestamp=none \
+  --timestamp \
   --identifier com.dockpops.companion.poplet \
   "$HELPER_PATH"
 
@@ -73,7 +73,7 @@ echo "Re-signing app bundle"
   --sign "$SIGNING_HASH" \
   -o runtime \
   --entitlements "$APP_XCENT" \
-  --timestamp=none \
+  --timestamp \
   --generate-entitlement-der \
   "$APP_PATH"
 
