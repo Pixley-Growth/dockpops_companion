@@ -25,10 +25,10 @@ The app is wired for Sparkle 2-based updates and expects its appcast at:
 To make that live:
 
 1. Enable GitHub Pages for this repo and serve the `docs/` folder on `main`.
-2. Build the signed release artifact with `./script/build_release.sh`.
-3. Zip the exported app with `ditto -c -k --sequesterRsrc --keepParent`.
-4. Use Sparkle's `generate_appcast` tool against a folder containing your release archives.
-5. Publish the generated `appcast.xml` to `docs/appcast.xml` and upload the matching archive to GitHub Releases.
+2. Build, notarize, and staple the release DMG.
+3. Use Sparkle's `generate_appcast` tool against the versioned DMG.
+4. Publish the generated `appcast.xml` to `docs/appcast.xml`.
+5. Upload both the versioned DMG and `DockPopsCompanion.dmg` to the GitHub release marked latest.
 
 The app is configured for Sparkle's normal automatic update checks while still letting users trigger `Check for Updates…` manually from the app menu.
 
@@ -60,4 +60,7 @@ That script:
 - builds the Release app into `/tmp/DockPopsCompanion-Release`
 - re-signs the embedded `DockPopsPoplet` helper with the local Developer ID identity
 - re-signs the top-level app bundle and verifies both signatures
-- writes the final DMG to `release/DockPopsCompanion-1.5.1.dmg`
+- writes the final DMG to the path passed to the script, defaulting to `release/DockPopsCompanion-4.0.dmg`
+
+For the full notarized upload checklist, including Sparkle appcast updates and
+the GitHub `latest` asset naming, see `docs/release-upload.md`.

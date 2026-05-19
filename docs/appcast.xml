@@ -3,19 +3,19 @@
     <channel>
         <title>DockPopsCompanion</title>
         <item>
-            <title>1.5.1</title>
-            <pubDate>Wed, 29 Apr 2026 19:44:05 -0500</pubDate>
-            <link>https://github.com/Pixley-Growth/dockpops_companion/releases/tag/v1.5.1</link>
-            <sparkle:version>8</sparkle:version>
-            <sparkle:shortVersionString>1.5.1</sparkle:shortVersionString>
+            <title>4.0</title>
+            <pubDate>Mon, 18 May 2026 16:27:22 -0500</pubDate>
+            <link>https://github.com/Pixley-Growth/dockpops_companion/releases/tag/v4.0.0</link>
+            <sparkle:version>9</sparkle:version>
+            <sparkle:shortVersionString>4.0</sparkle:shortVersionString>
             <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
-            <description sparkle:format="markdown"><![CDATA[## DockPops Companion 1.5.1
+            <description sparkle:format="markdown"><![CDATA[## DockPops Companion 4.0
 
-- Clamps the companion utility window to a sane maximum size on launch so stale restored frames cannot reopen as an extremely tall window.
-- Clears all saved companion window-frame keys instead of only the expected `main` key, covering SwiftUI/AppKit restoration variants seen on macOS 15.
-- Fills the entire window with the opaque system background so oversized or restored windows never expose desktop content around the main view.
+- Drop files, folders, or apps onto a Pop's Dock icon and they are handed straight to that Pop in DockPops — the same spring-loaded drop you get on the main DockPops icon, now on every individual Pop tile.
+- Fixes Menu Bar mode: clicking a Pop's Dock icon while DockPops runs from the menu bar now opens the Pop at its own Dock tile instead of wrongly anchoring the popover to the menu bar.
+- Version-aligned to DockPops 4.0 for release parity with the main app.
 ]]></description>
-            <enclosure url="https://github.com/Pixley-Growth/dockpops_companion/releases/download/v1.5.1/DockPopsCompanion-1.5.1.dmg" length="8369047" type="application/octet-stream" sparkle:edSignature="1WQq2v3rs/84VmnSWJMyldieDGyBfJkP3Z1e3cjyw+t6RVt3P69Acy4j3M6Au0AoFlI4MhLwIkl9I8iQmAxJAQ=="/>
+            <enclosure url="https://github.com/Pixley-Growth/dockpops_companion/releases/download/v4.0.0/DockPopsCompanion-4.0.dmg" length="8270087" type="application/octet-stream" sparkle:edSignature="bjdP+2EQpq183GwjBv7V1nQv8loqmB0y96RQKR2ZGNthTrVyzFf4zyI2qI24Ig/IOfc87CkC8RXppDtxGBKCCQ=="/>
         </item>
     </channel>
 </rss>
