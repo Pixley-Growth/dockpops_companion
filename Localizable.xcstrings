@@ -2,243 +2,680 @@
   "sourceLanguage" : "en",
   "strings" : {
     "Allow" : {
+      "extractionState" : "stale",
       "localizations" : {
-        "de" : { "stringUnit" : { "state" : "translated", "value" : "Erlauben" } },
-        "es-419" : { "stringUnit" : { "state" : "translated", "value" : "Permitir" } }
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Erlauben"
+          }
+        },
+        "es-419" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Permitir"
+          }
+        }
       }
     },
     "Allow Access" : {
+      "extractionState" : "stale",
       "localizations" : {
-        "de" : { "stringUnit" : { "state" : "translated", "value" : "Zugriff erlauben" } },
-        "es-419" : { "stringUnit" : { "state" : "translated", "value" : "Permitir acceso" } }
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Zugriff erlauben"
+          }
+        },
+        "es-419" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Permitir acceso"
+          }
+        }
       }
     },
     "Allow DockPops Access" : {
+      "extractionState" : "stale",
       "localizations" : {
-        "de" : { "stringUnit" : { "state" : "translated", "value" : "DockPops-Zugriff erlauben" } },
-        "es-419" : { "stringUnit" : { "state" : "translated", "value" : "Permitir acceso a DockPops" } }
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "DockPops-Zugriff erlauben"
+          }
+        },
+        "es-419" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Permitir acceso a DockPops"
+          }
+        }
       }
     },
     "Allow the DockPops shared folder so the companion can sync your Pops." : {
+      "extractionState" : "stale",
       "localizations" : {
-        "de" : { "stringUnit" : { "state" : "translated", "value" : "Erlaube den gemeinsamen DockPops-Ordner, damit diese App deine Pops synchronisieren kann." } },
-        "es-419" : { "stringUnit" : { "state" : "translated", "value" : "Permite la carpeta compartida de DockPops para que esta app pueda sincronizar tus Pops." } }
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Erlaube den gemeinsamen DockPops-Ordner, damit diese App deine Pops synchronisieren kann."
+          }
+        },
+        "es-419" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Permite la carpeta compartida de DockPops para que esta app pueda sincronizar tus Pops."
+          }
+        }
       }
     },
     "Anything you create or modify in DockPops appears here automatically." : {
+      "extractionState" : "stale",
       "localizations" : {
-        "de" : { "stringUnit" : { "state" : "translated", "value" : "Alles, was du in DockPops erstellst oder änderst, erscheint hier automatisch." } },
-        "es-419" : { "stringUnit" : { "state" : "translated", "value" : "Todo lo que crees o modifiques en DockPops aparece aquí automáticamente." } }
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Alles, was du in DockPops erstellst oder änderst, erscheint hier automatisch."
+          }
+        },
+        "es-419" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Todo lo que crees o modifiques en DockPops aparece aquí automáticamente."
+          }
+        }
       }
     },
     "Check for Updates…" : {
+      "extractionState" : "stale",
       "localizations" : {
-        "de" : { "stringUnit" : { "state" : "translated", "value" : "Nach Updates suchen…" } },
-        "es-419" : { "stringUnit" : { "state" : "translated", "value" : "Buscar actualizaciones…" } }
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Nach Updates suchen…"
+          }
+        },
+        "es-419" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Buscar actualizaciones…"
+          }
+        }
       }
     },
     "Choose the DockPops shared folder so the companion can sync your Pops." : {
+      "extractionState" : "stale",
       "localizations" : {
-        "de" : { "stringUnit" : { "state" : "translated", "value" : "Wähle den gemeinsamen DockPops-Ordner aus, damit diese App deine Pops synchronisieren kann." } },
-        "es-419" : { "stringUnit" : { "state" : "translated", "value" : "Elige la carpeta compartida de DockPops para que esta app pueda sincronizar tus Pops." } }
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Wähle den gemeinsamen DockPops-Ordner aus, damit diese App deine Pops synchronisieren kann."
+          }
+        },
+        "es-419" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Elige la carpeta compartida de DockPops para que esta app pueda sincronizar tus Pops."
+          }
+        }
       }
     },
     "Connecting…" : {
       "localizations" : {
-        "de" : { "stringUnit" : { "state" : "translated", "value" : "Verbinden…" } },
-        "es-419" : { "stringUnit" : { "state" : "translated", "value" : "Conectando…" } }
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Verbinden…"
+          }
+        },
+        "es-419" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Conectando…"
+          }
+        }
       }
     },
     "Continue" : {
+      "extractionState" : "stale",
       "localizations" : {
-        "de" : { "stringUnit" : { "state" : "translated", "value" : "Weiter" } },
-        "es-419" : { "stringUnit" : { "state" : "translated", "value" : "Continuar" } }
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Weiter"
+          }
+        },
+        "es-419" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Continuar"
+          }
+        }
       }
     },
     "Continue and then click Allow so this app can keep itself in sync." : {
+      "extractionState" : "stale",
       "localizations" : {
-        "de" : { "stringUnit" : { "state" : "translated", "value" : "Fahre fort und klicke dann auf „Erlauben“, damit diese App synchron bleiben kann." } },
-        "es-419" : { "stringUnit" : { "state" : "translated", "value" : "Continúa y luego haz clic en «Permitir» para que esta app pueda mantenerse sincronizada." } }
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Fahre fort und klicke dann auf „Erlauben“, damit diese App synchron bleiben kann."
+          }
+        },
+        "es-419" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Continúa y luego haz clic en «Permitir» para que esta app pueda mantenerse sincronizada."
+          }
+        }
       }
     },
     "Create at least one Pop in DockPops. Pops you make or modify there will appear here automatically." : {
+      "extractionState" : "stale",
       "localizations" : {
-        "de" : { "stringUnit" : { "state" : "translated", "value" : "Erstelle mindestens einen Pop in DockPops. Pops, die du dort erstellst oder änderst, erscheinen hier automatisch." } },
-        "es-419" : { "stringUnit" : { "state" : "translated", "value" : "Crea al menos un Pop en DockPops. Los Pops que crees o modifiques ahí aparecerán aquí automáticamente." } }
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Erstelle mindestens einen Pop in DockPops. Pops, die du dort erstellst oder änderst, erscheinen hier automatisch."
+          }
+        },
+        "es-419" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Crea al menos un Pop en DockPops. Los Pops que crees o modifiques ahí aparecerán aquí automáticamente."
+          }
+        }
       }
     },
     "DockPops not found" : {
+      "extractionState" : "stale",
       "localizations" : {
-        "de" : { "stringUnit" : { "state" : "translated", "value" : "DockPops nicht gefunden" } },
-        "es-419" : { "stringUnit" : { "state" : "translated", "value" : "No se encontró DockPops" } }
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "DockPops nicht gefunden"
+          }
+        },
+        "es-419" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No se encontró DockPops"
+          }
+        }
       }
     },
     "Drag to the Dock" : {
       "localizations" : {
-        "de" : { "stringUnit" : { "state" : "translated", "value" : "Ins Dock ziehen" } },
-        "es-419" : { "stringUnit" : { "state" : "translated", "value" : "Arrastra al Dock" } }
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ins Dock ziehen"
+          }
+        },
+        "es-419" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Arrastra al Dock"
+          }
+        }
       }
     },
     "Folder access was cancelled." : {
+      "extractionState" : "stale",
       "localizations" : {
-        "de" : { "stringUnit" : { "state" : "translated", "value" : "Der Ordnerzugriff wurde abgebrochen." } },
-        "es-419" : { "stringUnit" : { "state" : "translated", "value" : "Se canceló el acceso a la carpeta." } }
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Der Ordnerzugriff wurde abgebrochen."
+          }
+        },
+        "es-419" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Se canceló el acceso a la carpeta."
+          }
+        }
       }
     },
     "Install or launch the App Store build of DockPops so the companion can locate it." : {
+      "extractionState" : "stale",
       "localizations" : {
-        "de" : { "stringUnit" : { "state" : "translated", "value" : "Installiere oder öffne die App-Store-Version von DockPops, damit diese App sie finden kann." } },
-        "es-419" : { "stringUnit" : { "state" : "translated", "value" : "Instala o abre la versión de la App Store de DockPops para que esta app pueda encontrarla." } }
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Installiere oder öffne die App-Store-Version von DockPops, damit diese App sie finden kann."
+          }
+        },
+        "es-419" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Instala o abre la versión de la App Store de DockPops para que esta app pueda encontrarla."
+          }
+        }
       }
     },
     "Looking for DockPops…" : {
       "localizations" : {
-        "de" : { "stringUnit" : { "state" : "translated", "value" : "DockPops wird gesucht…" } },
-        "es-419" : { "stringUnit" : { "state" : "translated", "value" : "Buscando DockPops…" } }
-      }
-    },
-    "Make or Edit Pops" : {
-      "localizations" : {
-        "de" : { "stringUnit" : { "state" : "translated", "value" : "Pops erstellen oder bearbeiten" } },
-        "es-419" : { "stringUnit" : { "state" : "translated", "value" : "Crear o editar Pops" } }
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "DockPops wird gesucht…"
+          }
+        },
+        "es-419" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Buscando DockPops…"
+          }
+        }
       }
     },
     "Make or edit a Pop in DockPops. Pops you create or change there will appear here automatically." : {
+      "extractionState" : "stale",
       "localizations" : {
-        "de" : { "stringUnit" : { "state" : "translated", "value" : "Erstelle oder bearbeite einen Pop in DockPops. Pops, die du dort erstellst oder änderst, erscheinen hier automatisch." } },
-        "es-419" : { "stringUnit" : { "state" : "translated", "value" : "Crea o edita un Pop en DockPops. Los Pops que crees o modifiques ahí aparecerán aquí automáticamente." } }
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Erstelle oder bearbeite einen Pop in DockPops. Pops, die du dort erstellst oder änderst, erscheinen hier automatisch."
+          }
+        },
+        "es-419" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Crea o edita un Pop en DockPops. Los Pops que crees o modifiques ahí aparecerán aquí automáticamente."
+          }
+        }
+      }
+    },
+    "Make or Edit Pops" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Pops erstellen oder bearbeiten"
+          }
+        },
+        "es-419" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Crear o editar Pops"
+          }
+        }
       }
     },
     "Never" : {
+      "extractionState" : "stale",
       "localizations" : {
-        "de" : { "stringUnit" : { "state" : "translated", "value" : "Nie" } },
-        "es-419" : { "stringUnit" : { "state" : "translated", "value" : "Nunca" } }
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Nie"
+          }
+        },
+        "es-419" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Nunca"
+          }
+        }
       }
     },
     "No Pops found yet" : {
+      "extractionState" : "stale",
       "localizations" : {
-        "de" : { "stringUnit" : { "state" : "translated", "value" : "Noch keine Pops gefunden" } },
-        "es-419" : { "stringUnit" : { "state" : "translated", "value" : "Aún no se encontraron Pops" } }
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Noch keine Pops gefunden"
+          }
+        },
+        "es-419" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Aún no se encontraron Pops"
+          }
+        }
       }
     },
     "One quick setup step" : {
+      "extractionState" : "stale",
       "localizations" : {
-        "de" : { "stringUnit" : { "state" : "translated", "value" : "Ein kurzer Einrichtungsschritt" } },
-        "es-419" : { "stringUnit" : { "state" : "translated", "value" : "Un paso rápido de configuración" } }
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ein kurzer Einrichtungsschritt"
+          }
+        },
+        "es-419" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Un paso rápido de configuración"
+          }
+        }
       }
     },
     "Open and Allow" : {
+      "extractionState" : "stale",
       "localizations" : {
-        "de" : { "stringUnit" : { "state" : "translated", "value" : "Öffnen und erlauben" } },
-        "es-419" : { "stringUnit" : { "state" : "translated", "value" : "Abrir y permitir" } }
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Öffnen und erlauben"
+          }
+        },
+        "es-419" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Abrir y permitir"
+          }
+        }
       }
     },
     "Open DockPops" : {
+      "extractionState" : "stale",
       "localizations" : {
-        "de" : { "stringUnit" : { "state" : "translated", "value" : "DockPops öffnen" } },
-        "es-419" : { "stringUnit" : { "state" : "translated", "value" : "Abrir DockPops" } }
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "DockPops öffnen"
+          }
+        },
+        "es-419" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Abrir DockPops"
+          }
+        }
       }
     },
     "Pick any Pop app here and drag it straight into the Dock to pin it." : {
+      "extractionState" : "stale",
       "localizations" : {
-        "de" : { "stringUnit" : { "state" : "translated", "value" : "Wähle hier eine beliebige Pop-App aus und zieh sie direkt ins Dock, um sie anzuheften." } },
-        "es-419" : { "stringUnit" : { "state" : "translated", "value" : "Elige cualquier app de Pop aquí y arrástrala directamente al Dock para fijarla." } }
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Wähle hier eine beliebige Pop-App aus und zieh sie direkt ins Dock, um sie anzuheften."
+          }
+        },
+        "es-419" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Elige cualquier app de Pop aquí y arrástrala directamente al Dock para fijarla."
+          }
+        }
       }
     },
     "Pop apps ready" : {
+      "extractionState" : "stale",
       "localizations" : {
-        "de" : { "stringUnit" : { "state" : "translated", "value" : "Pop-Apps bereit" } },
-        "es-419" : { "stringUnit" : { "state" : "translated", "value" : "Apps de Pop listas" } }
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Pop-Apps bereit"
+          }
+        },
+        "es-419" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Apps de Pop listas"
+          }
+        }
       }
     },
     "Pops you make or modify in DockPops will appear here automatically. Then drag the ones you want into the Dock." : {
+      "extractionState" : "stale",
       "localizations" : {
-        "de" : { "stringUnit" : { "state" : "translated", "value" : "Pops, die du in DockPops erstellst oder änderst, erscheinen hier automatisch. Zieh dann die gewünschten ins Dock." } },
-        "es-419" : { "stringUnit" : { "state" : "translated", "value" : "Los Pops que crees o modifiques en DockPops aparecerán aquí automáticamente. Luego arrastra al Dock los que quieras." } }
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Pops, die du in DockPops erstellst oder änderst, erscheinen hier automatisch. Zieh dann die gewünschten ins Dock."
+          }
+        },
+        "es-419" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Los Pops que crees o modifiques en DockPops aparecerán aquí automáticamente. Luego arrastra al Dock los que quieras."
+          }
+        }
       }
     },
     "Refresh" : {
+      "extractionState" : "stale",
       "localizations" : {
-        "de" : { "stringUnit" : { "state" : "translated", "value" : "Aktualisieren" } },
-        "es-419" : { "stringUnit" : { "state" : "translated", "value" : "Actualizar" } }
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Aktualisieren"
+          }
+        },
+        "es-419" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Actualizar"
+          }
+        }
       }
     },
     "Refreshing…" : {
+      "extractionState" : "stale",
       "localizations" : {
-        "de" : { "stringUnit" : { "state" : "translated", "value" : "Wird aktualisiert…" } },
-        "es-419" : { "stringUnit" : { "state" : "translated", "value" : "Actualizando…" } }
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Wird aktualisiert…"
+          }
+        },
+        "es-419" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Actualizando…"
+          }
+        }
       }
     },
     "Reveal Pop Apps in Finder" : {
+      "extractionState" : "stale",
       "localizations" : {
-        "de" : { "stringUnit" : { "state" : "translated", "value" : "Pop-Apps im Finder anzeigen" } },
-        "es-419" : { "stringUnit" : { "state" : "translated", "value" : "Mostrar apps de Pop en el Finder" } }
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Pop-Apps im Finder anzeigen"
+          }
+        },
+        "es-419" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mostrar apps de Pop en el Finder"
+          }
+        }
       }
     },
     "The companion needs one-time access to DockPops' shared data folder. When you continue, that DockPops folder will open already selected, so you can just click Allow." : {
+      "extractionState" : "stale",
       "localizations" : {
-        "de" : { "stringUnit" : { "state" : "translated", "value" : "Diese App benötigt einmaligen Zugriff auf den gemeinsamen Datenordner von DockPops. Wenn du fortfährst, öffnet sich der DockPops-Ordner bereits ausgewählt – du musst nur auf „Erlauben“ klicken." } },
-        "es-419" : { "stringUnit" : { "state" : "translated", "value" : "Esta app necesita acceso por única vez a la carpeta de datos compartida de DockPops. Cuando continúes, esa carpeta de DockPops se abrirá ya seleccionada, así que solo tienes que hacer clic en «Permitir»." } }
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Diese App benötigt einmaligen Zugriff auf den gemeinsamen Datenordner von DockPops. Wenn du fortfährst, öffnet sich der DockPops-Ordner bereits ausgewählt – du musst nur auf „Erlauben“ klicken."
+          }
+        },
+        "es-419" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Esta app necesita acceso por única vez a la carpeta de datos compartida de DockPops. Cuando continúes, esa carpeta de DockPops se abrirá ya seleccionada, así que solo tienes que hacer clic en «Permitir»."
+          }
+        }
       }
     },
     "The DockPops folder opens already selected, so you can just click Allow." : {
+      "extractionState" : "stale",
       "localizations" : {
-        "de" : { "stringUnit" : { "state" : "translated", "value" : "Der DockPops-Ordner ist bereits ausgewählt – du musst nur auf „Erlauben“ klicken." } },
-        "es-419" : { "stringUnit" : { "state" : "translated", "value" : "La carpeta de DockPops se abre ya seleccionada, así que solo tienes que hacer clic en «Permitir»." } }
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Der DockPops-Ordner ist bereits ausgewählt – du musst nur auf „Erlauben“ klicken."
+          }
+        },
+        "es-419" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "La carpeta de DockPops se abre ya seleccionada, así que solo tienes que hacer clic en «Permitir»."
+          }
+        }
       }
     },
     "The DockPops folder should already be open. If it is not, choose group.com.dockpops.shared and click Allow." : {
+      "extractionState" : "stale",
       "localizations" : {
-        "de" : { "stringUnit" : { "state" : "translated", "value" : "Der DockPops-Ordner sollte bereits geöffnet sein. Falls nicht, wähle „group.com.dockpops.shared“ und klicke auf „Erlauben“." } },
-        "es-419" : { "stringUnit" : { "state" : "translated", "value" : "La carpeta de DockPops ya debería estar abierta. Si no es así, elige «group.com.dockpops.shared» y haz clic en «Permitir»." } }
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Der DockPops-Ordner sollte bereits geöffnet sein. Falls nicht, wähle „group.com.dockpops.shared“ und klicke auf „Erlauben“."
+          }
+        },
+        "es-419" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "La carpeta de DockPops ya debería estar abierta. Si no es así, elige «group.com.dockpops.shared» y haz clic en «Permitir»."
+          }
+        }
       }
     },
     "The DockPops shared folder is already open. Click Allow so the companion can sync your Pops." : {
+      "extractionState" : "stale",
       "localizations" : {
-        "de" : { "stringUnit" : { "state" : "translated", "value" : "Der gemeinsame DockPops-Ordner ist bereits geöffnet. Klicke auf „Erlauben“, damit diese App deine Pops synchronisieren kann." } },
-        "es-419" : { "stringUnit" : { "state" : "translated", "value" : "La carpeta compartida de DockPops ya está abierta. Haz clic en «Permitir» para que esta app pueda sincronizar tus Pops." } }
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Der gemeinsame DockPops-Ordner ist bereits geöffnet. Klicke auf „Erlauben“, damit diese App deine Pops synchronisieren kann."
+          }
+        },
+        "es-419" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "La carpeta compartida de DockPops ya está abierta. Haz clic en «Permitir» para que esta app pueda sincronizar tus Pops."
+          }
+        }
       }
     },
     "The DockPops shared folder will open already selected. Click Allow so this app can reconnect and keep itself in sync." : {
+      "extractionState" : "stale",
       "localizations" : {
-        "de" : { "stringUnit" : { "state" : "translated", "value" : "Der gemeinsame DockPops-Ordner öffnet sich bereits ausgewählt. Klicke auf „Erlauben“, damit diese App die Verbindung wiederherstellen und synchron bleiben kann." } },
-        "es-419" : { "stringUnit" : { "state" : "translated", "value" : "La carpeta compartida de DockPops se abrirá ya seleccionada. Haz clic en «Permitir» para que esta app pueda volver a conectarse y mantenerse sincronizada." } }
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Der gemeinsame DockPops-Ordner öffnet sich bereits ausgewählt. Klicke auf „Erlauben“, damit diese App die Verbindung wiederherstellen und synchron bleiben kann."
+          }
+        },
+        "es-419" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "La carpeta compartida de DockPops se abrirá ya seleccionada. Haz clic en «Permitir» para que esta app pueda volver a conectarse y mantenerse sincronizada."
+          }
+        }
       }
     },
     "The saved DockPops permission needs to be refreshed." : {
+      "extractionState" : "stale",
       "localizations" : {
-        "de" : { "stringUnit" : { "state" : "translated", "value" : "Die gespeicherte DockPops-Berechtigung muss erneuert werden." } },
-        "es-419" : { "stringUnit" : { "state" : "translated", "value" : "El permiso de DockPops guardado debe renovarse." } }
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Die gespeicherte DockPops-Berechtigung muss erneuert werden."
+          }
+        },
+        "es-419" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "El permiso de DockPops guardado debe renovarse."
+          }
+        }
       }
     },
     "They Show Up Here" : {
+      "extractionState" : "stale",
       "localizations" : {
-        "de" : { "stringUnit" : { "state" : "translated", "value" : "Sie erscheinen hier" } },
-        "es-419" : { "stringUnit" : { "state" : "translated", "value" : "Aparecen aquí" } }
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sie erscheinen hier"
+          }
+        },
+        "es-419" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Aparecen aquí"
+          }
+        }
       }
     },
     "This window refreshes with the latest Pop apps from DockPops." : {
+      "extractionState" : "stale",
       "localizations" : {
-        "de" : { "stringUnit" : { "state" : "translated", "value" : "Dieses Fenster aktualisiert sich mit den neuesten Pop-Apps aus DockPops." } },
-        "es-419" : { "stringUnit" : { "state" : "translated", "value" : "Esta ventana se actualiza con las apps de Pop más recientes de DockPops." } }
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Dieses Fenster aktualisiert sich mit den neuesten Pop-Apps aus DockPops."
+          }
+        },
+        "es-419" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Esta ventana se actualiza con las apps de Pop más recientes de DockPops."
+          }
+        }
       }
     },
     "Waiting for DockPops data" : {
+      "extractionState" : "stale",
       "localizations" : {
-        "de" : { "stringUnit" : { "state" : "translated", "value" : "Warten auf DockPops-Daten" } },
-        "es-419" : { "stringUnit" : { "state" : "translated", "value" : "Esperando datos de DockPops" } }
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Warten auf DockPops-Daten"
+          }
+        },
+        "es-419" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Esperando datos de DockPops"
+          }
+        }
       }
     },
     "When your Pops show up here, drag the Pop apps you want into the Dock." : {
+      "extractionState" : "stale",
       "localizations" : {
-        "de" : { "stringUnit" : { "state" : "translated", "value" : "Sobald deine Pops hier erscheinen, zieh die gewünschten Pop-Apps ins Dock." } },
-        "es-419" : { "stringUnit" : { "state" : "translated", "value" : "Cuando tus Pops aparezcan aquí, arrastra al Dock las apps de Pop que quieras." } }
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sobald deine Pops hier erscheinen, zieh die gewünschten Pop-Apps ins Dock."
+          }
+        },
+        "es-419" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Cuando tus Pops aparezcan aquí, arrastra al Dock las apps de Pop que quieras."
+          }
+        }
       }
     },
     "You can drag as many of the icons below to your Dock. Any changes or Pops you add on the main app will show up here.\n\nRefresh syncs Pop app files and icons. Open Pop apps may need a quick relaunch to fully update." : {
+      "extractionState" : "stale",
       "localizations" : {
-        "de" : { "stringUnit" : { "state" : "translated", "value" : "Du kannst beliebig viele der Symbole unten in dein Dock ziehen. Änderungen oder Pops, die du in der Haupt-App hinzufügst, erscheinen hier.\n\n„Aktualisieren“ synchronisiert Pop-App-Dateien und Symbole. Geöffnete Pop-Apps müssen eventuell kurz neu gestartet werden, um vollständig aktualisiert zu werden." } },
-        "es-419" : { "stringUnit" : { "state" : "translated", "value" : "Puedes arrastrar a tu Dock tantos de los iconos de abajo como quieras. Cualquier cambio o Pop que agregues en la app principal aparecerá aquí.\n\n«Actualizar» sincroniza los archivos e iconos de las apps de Pop. Es posible que las apps de Pop abiertas necesiten un reinicio rápido para actualizarse por completo." } }
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Du kannst beliebig viele der Symbole unten in dein Dock ziehen. Änderungen oder Pops, die du in der Haupt-App hinzufügst, erscheinen hier.\n\n„Aktualisieren“ synchronisiert Pop-App-Dateien und Symbole. Geöffnete Pop-Apps müssen eventuell kurz neu gestartet werden, um vollständig aktualisiert zu werden."
+          }
+        },
+        "es-419" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Puedes arrastrar a tu Dock tantos de los iconos de abajo como quieras. Cualquier cambio o Pop que agregues en la app principal aparecerá aquí.\n\n«Actualizar» sincroniza los archivos e iconos de las apps de Pop. Es posible que las apps de Pop abiertas necesiten un reinicio rápido para actualizarse por completo."
+          }
+        }
       }
     }
   },

@@ -14,7 +14,11 @@ final class PopletSyncService: @unchecked Sendable {
     /// Bump when the poplet icon rendering recipe changes even if the source
     /// PopIcons PNG does not. This forces unopened poplets onto a fresh bundle
     /// version so Dock/Finder stop serving stale cached icons.
-    private static let popletIconRecipeVersion = 11
+    /// 12: bake .icns / Assets.car from the inset, rounded presentation canvas
+    ///     instead of full-bleed PopIcons art.
+    /// 13: inset tuned to 0.832 — macOS 26 renders generated Poplet icons as-is
+    ///     (no Tahoe shrink), so the bake matches sibling apps at 83.2%.
+    private static let popletIconRecipeVersion = 13
     private static let popletIconRecipeVersionInfoKey = "DockPopsIconRecipeVersion"
     private static let launchServicesRegisterPath =
         "/System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/LaunchServices.framework/Support/lsregister"
@@ -328,14 +332,21 @@ final class PopletSyncService: @unchecked Sendable {
         }
 
         let resolvedIcon = resolvedPopletIcon(for: pop.id, paths: paths)
+        // SACRED CODE:
+        // Bake the .icns / Assets.car from the NORMALIZED (inset) image —
+        // never `resolvedIcon.image`, which is full-bleed PopIcons art.
+        // Commit 48f9cad shipped the raw bake and the closed Dock tile
+        // rendered ~15% oversized against every sibling icon. This regression
+        // has recurred more than once; do not "simplify" the bake back to raw.
+        let presentationIcon = resolvedIcon.image?.normalizedPopletAppIcon() ?? resolvedIcon.image
         return try withBundleLocks(for: [bundleURL]) {
             let executableURL = macOSURL.appending(path: popletExecutableName)
             let infoPlistURL = contentsURL.appending(path: "Info.plist")
             let pkgInfoURL = contentsURL.appending(path: "PkgInfo")
-            let iconData = try generatedIconDataIfPossible(for: resolvedIcon.image)
+            let iconData = try generatedIconDataIfPossible(for: presentationIcon)
             // macOS 26 plate-free icon: compiled asset catalog + CFBundleIconName.
             // nil when actool is unavailable — the bundle falls back to .icns only.
-            let assetCatalogData = generatedAssetCatalogDataIfPossible(for: resolvedIcon.image)
+            let assetCatalogData = generatedAssetCatalogDataIfPossible(for: presentationIcon)
 
             if fileManager.fileExists(atPath: stagingBundleURL.path) {
                 try fileManager.removeItem(at: stagingBundleURL)
@@ -363,6 +374,14 @@ final class PopletSyncService: @unchecked Sendable {
                 "CFBundleVersion": resolvedIcon.bundleVersion,
                 "CFBundleDocumentTypes": Self.popletDocumentTypes,
                 "LSMinimumSystemVersion": "14.0",
+                // SACRED CODE:
+                // A Poplet exists only to relay a click to DockPops. LSUIElement
+                // keeps it out of CMD+TAB and the menu bar from the instant
+                // Launch Services reads the bundle — no runtime race with
+                // NSApplication.setActivationPolicy(.accessory). Removing it
+                // reintroduces the #1 user complaint. Keep it in lockstep with
+                // the `.accessory` policy in DockPopsPopletMain.main().
+                "LSUIElement": true,
                 "NSPrincipalClass": "NSApplication",
                 Self.popletIconRecipeVersionInfoKey: Self.popletIconRecipeVersion,
                 "DockPopsTargetPopID": pop.id.uuidString,
@@ -418,10 +437,11 @@ final class PopletSyncService: @unchecked Sendable {
         let baseBuildVersion = currentCompanionBuildVersion()
         let popIconURL = paths.sharedPopIconsDirectoryURL.appending(path: "\(popID.uuidString).png")
         if let image = NSImage(contentsOf: popIconURL) {
-            // The shared PopIcons PNG is already the final composed app-icon art.
-            // Keep the baked ICNS raw; Tahoe's closed-app renderer may still add
-            // a system plate, so generated bundles also get a Finder custom icon
-            // after signing to make the at-rest Dock tile use the raw artwork.
+            // The shared PopIcons PNG is full-bleed composed art. Return it raw
+            // here; writePopletBundle insets it onto the standard app-icon
+            // presentation canvas before baking (do NOT bake it full-bleed —
+            // that makes the closed Dock tile oversized). Generated bundles also
+            // get a Finder custom icon after signing to defeat the Tahoe plate.
             return ResolvedPopletIcon(
                 image: image,
                 source: .popComposite,

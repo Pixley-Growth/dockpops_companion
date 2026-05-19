@@ -1,6 +1,19 @@
 import AppKit
 import Foundation
 
+// EXPERIMENT outcome — "accessory, resident" Poplets (2026-05-19)
+//
+// Goal: stop Poplets from occupying a CMD+TAB slot, without making the Dock
+// icon bounce on every click.
+//
+// What we learned: the Dock bounce is the *launch* animation — it plays only
+// while a non-running app starts up. A resident app reopens silently. So a
+// quit-on-click Poplet bounces on every click (every click is a cold launch).
+//
+// The fix is the activation policy, not the lifetime. `.accessory` removes the
+// CMD+TAB entry whether or not the app is running, so the Poplet can stay
+// resident: no CMD+TAB slot, and no bounce after the first cold launch.
+
 @MainActor
 @main
 enum DockPopsPopletMain {
@@ -8,7 +21,15 @@ enum DockPopsPopletMain {
 
     static func main() {
         let app = NSApplication.shared
-        app.setActivationPolicy(.regular)
+        // SACRED CODE:
+        // Poplets MUST launch `.accessory` and stay resident. `.regular` puts
+        // every poplet in CMD+TAB — the #1 user complaint. Quitting on click
+        // instead of staying resident makes the Dock tile bounce on every
+        // click (a cold launch bounces; a resident reopen does not).
+        // `.accessory` + resident is the only combination with neither.
+        // Keep this in lockstep with `LSUIElement` in the generated Info.plist
+        // (PopletSyncService.writePopletBundle).
+        app.setActivationPolicy(.accessory)
         app.delegate = delegate
         app.run()
     }
@@ -105,7 +126,14 @@ private final class DockPopsPopletDelegate: NSObject, NSApplicationDelegate {
         ]
 
         guard let url = components.url else { return }
-        _ = NSWorkspace.shared.open(url)
+        // Deliver the URL WITHOUT launch-activating DockPops. A plain open(_:)
+        // fronts DockPops as the URL handler — that triggers the Dock "make
+        // space" animation and pulls the organizer window forward. DockPops
+        // shows the Poplet popover as a background utility; it must not steal
+        // foreground focus.
+        let configuration = NSWorkspace.OpenConfiguration()
+        configuration.activates = false
+        NSWorkspace.shared.open(url, configuration: configuration, completionHandler: nil)
     }
 
     private func prepareDockPopsForDrop() {

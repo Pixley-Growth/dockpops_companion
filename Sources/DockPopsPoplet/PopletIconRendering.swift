@@ -8,8 +8,17 @@ import UniformTypeIdentifiers
 /// rounded-rect mask.
 enum PopletIconRendering {
     static let canvasSize: Int = 1024
-    /// Keeps poplet artwork visually aligned with standard macOS Dock icons.
-    static let contentScale: CGFloat = 0.86
+    /// SACRED CODE:
+    /// `contentScale` 0.832 and `cornerRadiusRatio` 0.2237 MUST stay equal to
+    /// `NSImage.normalizedPopletAppIcon`'s defaults in the DockPopsCompanion
+    /// target. This path renders the *live running* tile (Method B, via
+    /// NSApp.applicationIconImage); that path bakes the *closed* Dock tile. If
+    /// they diverge, a poplet's icon changes size the instant it launches. The
+    /// targets do not share code — change one constant, change the other.
+    ///
+    /// 0.832: the Dock shows applicationIconImage as-is (no macOS 26 shrink),
+    /// so match the 83.2% Tahoe renders sibling app icons at.
+    static let contentScale: CGFloat = 0.832
     /// Rounded-rect corner radius (`insetEdge * 0.2237`, circular-arc curve).
     static let cornerRadiusRatio: CGFloat = 0.2237
 
