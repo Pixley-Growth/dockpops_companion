@@ -134,6 +134,84 @@ is one post; everything is in it.
 
 ---
 
+## 2.7 Live icon push — `com.dockpops.poplet.iconUpdated`
+
+Today the Companion is the only thing that pushes pop icon changes out
+to Poplets — it watches the App-Group `PopIcons` directory and mirrors
+to a Library/Application Support cache that the Poplet's
+`PopletLiveIconController` reads. That means: **if the Companion isn't
+running, the Poplet's live tile shows whatever the mirror had last
+time.** DockPops can fix this with one more notification.
+
+### 2.7.1 What DockPops Main should post
+
+Whenever DockPops changes a pop's icon (user edits color, dynamic icon
+recipe ticks, anything that writes `PopIcons/<uuid>.png`), post:
+
+```swift
+DistributedNotificationCenter.default().postNotificationName(
+    Notification.Name("com.dockpops.poplet.iconUpdated"),
+    object: nil,
+    userInfo: [
+        "pop": "<UUID string>",
+        "iconData": <PNG bytes as Data>,
+    ],
+    deliverImmediately: true
+)
+```
+
+Recommended image: a **256×256 PNG** (typically 10–30 KB). Plenty of
+resolution for the Dock tile, well under any `distnoted` userInfo size
+ceiling. Don't send a full 1024×1024 — it bloats the broadcast and
+DistributedNotifications get unreliable past ~50 KB userInfo.
+
+### 2.7.2 Piggyback on `openRequest`
+
+Cold-launched Poplets miss any broadcasts that fired while they weren't
+running. When DockPops handles an incoming `openRequest`, immediately
+post the matching `iconUpdated` for that pop's current icon, *then*
+open the popover. The fresh-from-IPC icon arrives ~milliseconds after
+the Poplet's `PopletLiveIconController` registers its observer, which
+means every click → fresh icon, no Companion required.
+
+Order suggestion:
+
+```swift
+{ notification in
+    // …validate userInfo as in § 2.4…
+    Task { @MainActor in
+        broadcastIconUpdate(forPop: popID)   // post iconUpdated first
+        openPopover(popID: popID, …)         // then open the popover
+    }
+}
+```
+
+Posting the icon first means it lands in the Poplet's observer queue
+before the popover animation starts — visually the tile and the popover
+update together.
+
+### 2.7.3 What the Poplet does with it
+
+`PopletLiveIconController` (Companion repo) observes this exact
+notification, filters by its own `popID`, decodes the PNG, runs it
+through the normalized presentation canvas (0.832 inset + rounded
+mask), and sets `NSApp.applicationIconImage`. Already implemented on
+the Companion side.
+
+### 2.7.4 Acceptance criteria for the icon push
+
+- [ ] With DockPops 4.1+ running and a Poplet running: change a pop's
+      icon in DockPops → the Poplet's Dock tile updates within ~100 ms
+      with **no Companion running**.
+- [ ] Cold-launch path: click a Poplet that wasn't running → the
+      Poplet's live tile shows the current icon as the popover opens,
+      not a stale one.
+- [ ] No regression to the existing Companion-mirror path: with the
+      Companion running, both mechanisms fire and the last one wins;
+      they converge on the same icon.
+
+---
+
 ## 3. What to do with the old Darwin listener
 
 Two options; either is fine.
@@ -214,8 +292,15 @@ commit hash that landed the matching change.
 
 ## 8. Companion-side reference (for code review)
 
-The matching Companion-side code lives in
-`../3.5 DockPops Companion/Sources/DockPopsPoplet/DockPopsPopletMain.swift`,
-in `postOpenPopToDockPops(mouse:)` and the `PopletDockPopsIPC` enum.
-Read those two pieces to verify the notification name, the userInfo
-schema, and the running-app gate match what this listener expects.
+The matching Companion-side code lives in:
+
+- `../3.5 DockPops Companion/Sources/DockPopsPoplet/DockPopsPopletMain.swift`
+  — `postOpenPopToDockPops(mouse:)` and the `PopletDockPopsIPC` enum.
+  Source of `openRequest` posts.
+- `../3.5 DockPops Companion/Sources/DockPopsPoplet/PopletLiveIconController.swift`
+  — `installIconUpdateObserver()` and `applyIconFromIPC(_:)`. Consumer of
+  `iconUpdated` posts. `Self.iconUpdateNotificationName` is the canonical
+  string the observer registers for.
+
+Read those pieces to verify both notification names, both userInfo
+schemas, and the running-app gate match what this listener expects.

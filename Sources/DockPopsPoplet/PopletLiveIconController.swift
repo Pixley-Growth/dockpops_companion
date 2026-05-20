@@ -32,12 +32,20 @@ final class PopletLiveIconController {
         category: "LiveIcon"
     )
 
+    /// DistributedNotification name DockPops Main posts to push live icon
+    /// updates straight to running Poplets. Pairs with `openRequest` —
+    /// together they form the "no Companion required" IPC surface.
+    /// See `docs/specs/dockpops-main-direct-ipc.md`.
+    static let iconUpdateNotificationName = "com.dockpops.poplet.iconUpdated"
+
     private let fileManager = FileManager.default
+    private let popID: UUID
     private let bundleURL: URL
     private let watchedDirectoryURL: URL?
     private let popIconURL: URL?
 
     private var directorySource: DispatchSourceFileSystemObject?
+    private var iconUpdateObserver: NSObjectProtocol?
     private var debounceTask: Task<Void, Never>?
     private var settleRetryTask: Task<Void, Never>?
     private var watcherRetryTask: Task<Void, Never>?
@@ -62,6 +70,7 @@ final class PopletLiveIconController {
         liveIconsDirectoryURL: URL? = PopletSharedPaths.mirroredPopIconsDirectoryURL,
         bundleURL: URL = Bundle.main.bundleURL
     ) {
+        self.popID = popID
         self.bundleURL = bundleURL
         self.watchedDirectoryURL = liveIconsDirectoryURL
         self.popIconURL = liveIconsDirectoryURL.map { liveIconsDirectoryURL in
@@ -80,6 +89,7 @@ final class PopletLiveIconController {
         stop()
         _ = applyLatestIcon()
         installDirectoryWatcher()
+        installIconUpdateObserver()
     }
 
     func stop() {
@@ -90,6 +100,69 @@ final class PopletLiveIconController {
         watcherRetryTask?.cancel()
         watcherRetryTask = nil
         invalidateDirectoryWatcher()
+        removeIconUpdateObserver()
+    }
+
+    /// Pull live icons directly from DockPops Main via DistributedNotification.
+    /// Works whether or not the Companion is running — the Companion's mirror
+    /// directory above remains as a fallback for the initial paint while the
+    /// Poplet starts up, but real-time updates now arrive over IPC.
+    private func installIconUpdateObserver() {
+        iconUpdateObserver = DistributedNotificationCenter.default().addObserver(
+            forName: Notification.Name(Self.iconUpdateNotificationName),
+            object: nil,
+            queue: .main
+        ) { [weak self] notification in
+            // Swift 6: extract Sendable values before crossing the actor.
+            let popIDString = notification.userInfo?["pop"] as? String
+            let iconData = notification.userInfo?["iconData"] as? Data
+            Task { @MainActor in
+                self?.handleIconUpdate(popIDString: popIDString, iconData: iconData)
+            }
+        }
+    }
+
+    private func removeIconUpdateObserver() {
+        if let iconUpdateObserver {
+            DistributedNotificationCenter.default().removeObserver(iconUpdateObserver)
+        }
+        iconUpdateObserver = nil
+    }
+
+    private func handleIconUpdate(popIDString: String?, iconData: Data?) {
+        // DistributedNotifications broadcast to every running Poplet; each
+        // process filters by its own popID and acts only on its own updates.
+        guard let popIDString, popIDString == popID.uuidString else { return }
+        guard let iconData, !iconData.isEmpty else {
+            Self.logger.error("iconUpdated received with missing payload for \(self.popID.uuidString, privacy: .public)")
+            return
+        }
+        applyIconFromIPC(iconData)
+    }
+
+    /// Apply an icon delivered over IPC. Bypasses the file-watcher signature
+    /// dedup (which compares mtime + filesize of the mirrored PNG on disk).
+    /// Clearing `lastAppliedIconSignature` lets a later file-watcher fire
+    /// re-validate against disk so the two paths stay convergent.
+    private func applyIconFromIPC(_ data: Data) {
+        guard
+            let rawImage = PopletIconRendering.loadImage(from: data),
+            let normalized = PopletIconRendering.normalizedCanvas(from: rawImage)
+        else {
+            // If the inset/mask normalizer can't run, fall back to the raw
+            // decode so the Poplet at least picks up the new artwork.
+            if let decoded = NSImage(data: data) {
+                NSApp.applicationIconImage = decoded
+                lastAppliedIconSignature = nil
+            }
+            return
+        }
+        let image = NSImage(
+            cgImage: normalized,
+            size: NSSize(width: CGFloat(normalized.width), height: CGFloat(normalized.height))
+        )
+        NSApp.applicationIconImage = image
+        lastAppliedIconSignature = nil
     }
 
     private func applyLatestIcon() -> RefreshResult {
