@@ -14,6 +14,30 @@ import Foundation
 // CMD+TAB entry whether or not the app is running, so the Poplet can stay
 // resident: no CMD+TAB slot, and no bounce after the first cold launch.
 
+/// SACRED CODE:
+/// The Poplet does NOT touch the App Group itself. Poplet `.app` bundles are
+/// ad-hoc signed (generated at runtime), and macOS 26 prompts "...would like
+/// to access data from other apps" on every click when an ad-hoc binary uses
+/// an App Group entitlement — TCC can't persist consent against a missing
+/// team identity.
+///
+/// Instead the Poplet posts a `DistributedNotificationCenter` request straight
+/// to DockPops Main, with the open payload in `userInfo`. DockPops observes
+/// the notification on the same name and opens the popover directly. No App
+/// Group, no entitlement, no Companion mediation, no LaunchServices flash.
+///
+/// See `docs/specs/dockpops-main-direct-ipc.md` for the DockPops-side
+/// listener contract that pairs with this.
+private enum PopletDockPopsIPC {
+    /// DistributedNotification name DockPops Main observes. Keep in lockstep
+    /// with the DockPops listener registration. (Re-uses the canonical
+    /// `com.dockpops.poplet.openRequest` name from Sacred Zone #20; the
+    /// previous transport — Darwin notify center + App-Group UserDefaults
+    /// payload — is replaced by a single `DistributedNotificationCenter` post
+    /// that carries the payload natively in `userInfo`.)
+    static let requestNotificationName = "com.dockpops.poplet.openRequest"
+}
+
 @MainActor
 @main
 enum DockPopsPopletMain {
@@ -110,6 +134,60 @@ private final class DockPopsPopletDelegate: NSObject, NSApplicationDelegate {
 
     private func openPop() {
         let mouse = NSEvent.mouseLocation
+
+        // Hot path: DockPops is already running → post the open request as a
+        // DistributedNotification with the payload in userInfo. DockPops's
+        // listener picks it up and opens the popover directly. Bypasses
+        // LaunchServices (no Dock flash in Menu Bar mode) and requires no
+        // entitlement on this process (no TCC prompt on ad-hoc bundles).
+        //
+        // Cold path: DockPops isn't running → fire the legacy URL scheme to
+        // wake it. One-time flash on cold launch is the cost of launching
+        // DockPops at all and is accepted UX.
+        let dockPopsRunning = NSWorkspace.shared.runningApplications.contains {
+            $0.bundleIdentifier == PopletSharedPaths.dockPopsBundleIdentifier
+        }
+
+        if dockPopsRunning {
+            postOpenPopToDockPops(mouse: mouse)
+        } else {
+            fireLegacyOpenPopURL(mouse: mouse)
+        }
+    }
+
+    /// HOT PATH — direct cross-process post to DockPops Main.
+    ///
+    /// SACRED CODE:
+    /// `DistributedNotificationCenter` is the only IPC mechanism that meets
+    /// every constraint at once: it carries a payload (`userInfo`), it does
+    /// NOT need any entitlement (so an ad-hoc Poplet doesn't trip macOS 26
+    /// TCC), and it does NOT go through LaunchServices' GURL Apple Event
+    /// (so it doesn't flash the Dock in Menu Bar mode). `distnoted` only
+    /// delivers to a *running* app — DockPops cold-start is covered by the
+    /// URL fallback in the caller.
+    private func postOpenPopToDockPops(mouse: NSPoint) {
+        let payload: [String: Any] = [
+            "pop": rawPopID,
+            "x": Double(mouse.x),
+            "y": Double(mouse.y),
+            "locked": true,
+            "source": "poplet",
+            "timestamp": Date().timeIntervalSince1970,
+        ]
+        DistributedNotificationCenter.default().postNotificationName(
+            Notification.Name(PopletDockPopsIPC.requestNotificationName),
+            object: nil,
+            userInfo: payload,
+            deliverImmediately: true
+        )
+    }
+
+    /// COLD PATH — DockPops is not running. Use the legacy URL scheme to
+    /// wake it. LaunchServices' GURL-event delivery briefly asserts regular
+    /// activation on the receiver and produces a Dock flash in Menu Bar mode;
+    /// on cold start this is the cost of launching DockPops at all, so we
+    /// accept the one-time flash here.
+    private func fireLegacyOpenPopURL(mouse: NSPoint) {
         var components = URLComponents()
         components.scheme = "dockpops"
         components.host = "open"

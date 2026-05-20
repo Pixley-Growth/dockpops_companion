@@ -751,6 +751,12 @@ final class PopletSyncService: @unchecked Sendable {
     }
 
     private func signGeneratedPopletBundle(at bundleURL: URL) throws {
+        // Poplet bundles are signed ad-hoc and WITHOUT entitlements. Click
+        // events hand off to the Companion (which holds the trusted App Group
+        // entitlement) via DistributedNotificationCenter — see
+        // PopletOpenBridge + DockPopsPopletMain.postOpenPopViaCompanion. An
+        // ad-hoc Poplet with an App Group entitlement prompts macOS 26 TCC
+        // on every click ("...would like to access data from other apps").
         let result = try runProcess(
             executablePath: "/usr/bin/codesign",
             arguments: ["--force", "--deep", "--sign", "-", bundleURL.path]
