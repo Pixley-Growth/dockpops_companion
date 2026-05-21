@@ -72,11 +72,20 @@ private final class DockPopsPopletDelegate: NSObject, NSApplicationDelegate {
 
         installMenu()
 
-        // SACRED CODE:
-        // Poplets must never reopen shared-container access on launch. They
-        // consume only the companion-managed mirror so they stay prompt-free
-        // and so live icon regressions cannot sneak back in through a "quick"
-        // raw path fallback.
+        // SACRED CODE (revised 2026-05-20):
+        // Poplets must never reopen shared-container access via the App
+        // Group ENTITLEMENT on launch. That entitlement path triggers TCC
+        // prompts on every click for ad-hoc signed bundles on macOS 26.
+        //
+        // What IS allowed: a hardcoded ABSOLUTE PATH read of
+        // `~/Library/Group Containers/group.com.dockpops.shared/PopIcons/
+        // <uuid>.png`. POSIX permissions on that directory are
+        // `drwx------` user-owned; any process running as the user (the
+        // Poplet does — no sandbox, no entitlements) can read it given
+        // the path. No entitlement, no TCC prompt. See
+        // `PopletLiveIconController.refreshFromSharedContainer` and the
+        // cross-repo handoff `docs/handoffs/companion-poplet-poll-on-
+        // click.md` in DockPops Main.
 
         // Method B — mirror the shared pop composite onto the running app's
         // Dock tile via NSApp.applicationIconImage using the companion's
@@ -109,6 +118,12 @@ private final class DockPopsPopletDelegate: NSObject, NSApplicationDelegate {
     }
 
     func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool) -> Bool {
+        // Poll-on-click: re-read the composite PNG from the shared
+        // container before opening the popover. Covers the case where the
+        // user edited the Pop in Main while this Poplet was running but
+        // Companion was closed (DNC iconUpdated may have been missed by
+        // the mirror's file watcher; the disk PNG is the source of truth).
+        liveIconController?.refreshFromSharedContainer()
         openPop()
         return false
     }

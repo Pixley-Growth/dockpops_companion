@@ -87,10 +87,73 @@ final class PopletLiveIconController {
 
     func start() {
         stop()
+        // Poll-on-launch first (reads the canonical disk PNG straight from
+        // the shared container) so even cold-launched Poplets paint with
+        // the current icon when Companion has never run / mirror is empty.
+        // See `refreshFromSharedContainer()` for the read path + SACRED
+        // rationale.
+        refreshFromSharedContainer()
+        // Companion's mirror watcher still runs as defense-in-depth — when
+        // Companion IS running, the mirror PNG matches the shared container
+        // PNG byte-for-byte and the file watcher gives sub-second live
+        // updates during running edits. Both paths set
+        // `NSApp.applicationIconImage` to the same content so there's no
+        // flicker.
         _ = applyLatestIcon()
         installDirectoryWatcher()
         installIconUpdateObserver()
     }
+
+    /// Poll-on-click: read the composite PNG straight from the shared
+    /// container's `PopIcons/<uuid>.png` (Main writes it atomically there)
+    /// and apply it to `NSApp.applicationIconImage`. Call from
+    /// `applicationDidFinishLaunching` (initial paint) and from
+    /// `applicationShouldHandleReopen` (catches Pop edits made while the
+    /// Poplet wasn't running OR while Companion wasn't running).
+    ///
+    /// Per cross-repo handoff `docs/handoffs/companion-poplet-poll-on-click.md`
+    /// in DockPops Main (2026-05-20):
+    ///   • Main guarantees an atomic PNG at the canonical path on every
+    ///     Pop content change.
+    ///   • Companion's Poplet reads directly via absolute path. NO App
+    ///     Group entitlement, NO security-scoped bookmark, NO Companion
+    ///     dependency. Just POSIX file read.
+    ///
+    /// SACRED relaxation (2026-05-20):
+    /// `DockPopsPopletMain.applicationDidFinishLaunching`'s SACRED block
+    /// previously stated "Poplets must never reopen shared-container
+    /// access on launch." That SACRED was about App Group ENTITLEMENT
+    /// access (which triggers TCC prompts on every click for ad-hoc
+    /// signed bundles per macOS 26). This call does NOT use the
+    /// entitlement — it uses a hardcoded absolute path. POSIX
+    /// permissions on the App Group container directory are
+    /// `drwx------` user-owned, so any process running as the user
+    /// (which the Poplet does — no sandbox, no entitlements) can read
+    /// the contents when the path is known. Verified empirically.
+    func refreshFromSharedContainer() {
+        let pngURL = Self.sharedPopIconDirectory
+            .appending(path: "\(popID.uuidString).png")
+        guard let data = try? Data(contentsOf: pngURL) else { return }
+        applyIconFromIPC(data)
+    }
+
+    /// Hardcoded path to Main's `PopIcons/` directory in the App Group
+    /// container. Poplets cannot resolve `group.com.dockpops.shared` via
+    /// `FileManager.containerURL(forSecurityApplicationGroupIdentifier:)`
+    /// because they're ad-hoc signed and don't carry the App Group
+    /// entitlement — so this constant hardcodes the absolute path under
+    /// `~/Library/Group Containers/`. macOS allows cross-process reads
+    /// of app group containers via direct path when the caller has
+    /// POSIX read permission (which is "process runs as the file's
+    /// owner" — true here since both Main and the Poplet run as the
+    /// user).
+    private static let sharedPopIconDirectory: URL = {
+        FileManager.default
+            .homeDirectoryForCurrentUser
+            .appending(path: "Library/Group Containers")
+            .appending(path: "group.com.dockpops.shared")
+            .appending(path: "PopIcons")
+    }()
 
     func stop() {
         debounceTask?.cancel()
