@@ -3,6 +3,21 @@
     <channel>
         <title>DockPopsCompanion</title>
         <item>
+            <title>4.1</title>
+            <pubDate>Thu, 21 May 2026 12:41:23 -0500</pubDate>
+            <sparkle:version>10</sparkle:version>
+            <sparkle:shortVersionString>4.1</sparkle:shortVersionString>
+            <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
+            <description sparkle:format="markdown"><![CDATA[## DockPops Companion 4.1
+
+- Pop apps no longer take up a slot in the Command-Tab app switcher.
+- Pop app Dock icons no longer bounce when clicked — they open instantly and quietly.
+- Fixed Pop app Dock icon sizing so a closed Pop app matches the size of the apps next to it in the Dock.
+- Localization updates for German and Latin-American Spanish.
+]]></description>
+            <enclosure url="https://github.com/Pixley-Growth/dockpops_companion/releases/download/v4.1.0/DockPopsCompanion-4.1.dmg" length="8273914" type="application/octet-stream" sparkle:edSignature="7ApUp5ETsYyaMJ+aYjL9LEOD+vwuqd4qrjOHBhzlmrEyo+w9ZRJuc+jL7LpdBqbZjBJ9szqSnTy3SwoexC8ABw=="/>
+        </item>
+        <item>
             <title>4.0</title>
             <pubDate>Mon, 18 May 2026 16:27:22 -0500</pubDate>
             <link>https://github.com/Pixley-Growth/dockpops_companion/releases/tag/v4.0.0</link>
