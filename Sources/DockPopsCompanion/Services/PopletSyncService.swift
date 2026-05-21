@@ -18,7 +18,10 @@ final class PopletSyncService: @unchecked Sendable {
     ///     instead of full-bleed PopIcons art.
     /// 13: inset tuned to 0.832 — macOS 26 renders generated Poplet icons as-is
     ///     (no Tahoe shrink), so the bake matches sibling apps at 83.2%.
-    private static let popletIconRecipeVersion = 13
+    /// 14: poplet healer no longer aborts after stripping Finder custom icons
+    ///     when actool fails to produce Assets.car; it falls back to ICNS-only
+    ///     and reapplies the Finder custom icon.
+    private static let popletIconRecipeVersion = 14
     private static let popletIconRecipeVersionInfoKey = "DockPopsIconRecipeVersion"
     private static let launchServicesRegisterPath =
         "/System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/LaunchServices.framework/Support/lsregister"

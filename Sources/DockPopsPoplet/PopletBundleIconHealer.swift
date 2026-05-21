@@ -17,7 +17,7 @@ struct PopletBundleIconHealer: Sendable {
         category: "IconHealer"
     )
     private static let iconName = "AppIcon"
-    private static let iconRecipeVersion = 13
+    private static let iconRecipeVersion = 14
     private static let iconRecipeVersionInfoKey = "DockPopsIconRecipeVersion"
     private static let bundleIconNameInfoKey = "CFBundleIconName"
     private static let iconVariants: [(name: String, pixelSize: Int)] = [
@@ -259,6 +259,9 @@ struct PopletBundleIconHealer: Sendable {
     /// `actool` ships with Xcode, not macOS — typical end-user machines do
     /// not have it. In that case the catalog is removed and `CFBundleIconName`
     /// is cleared so LaunchServices falls back to the fresh `AppIcon.icns`.
+    /// If `actool` is present but fails to produce `Assets.car`, take the same
+    /// fallback. The healer has already stripped the Finder custom icon by this
+    /// point, so aborting here leaves the bundle half-healed and plated.
     private func regenerateOrRemoveAssetsCar(from pngURL: URL) throws {
         let resourcesURL = bundleURL
             .appending(path: "Contents", directoryHint: .isDirectory)
@@ -266,33 +269,53 @@ struct PopletBundleIconHealer: Sendable {
         let assetCatalogURL = resourcesURL.appending(path: "Assets.car")
 
         if let actoolURL = Self.locateActool() {
-            // SACRED: same normalized canvas as regenerateICNS — both must
-            // bake from the inset/rounded image, not raw full-bleed.
-            guard let rawImage = PopletIconRendering.loadImage(at: pngURL),
-                  let normalizedImage = PopletIconRendering.normalizedCanvas(from: rawImage),
-                  let normalizedPNG = PopletIconRendering.pngData(from: normalizedImage)
-            else {
-                throw PopletIconError.imageLoadFailed(pngURL)
-            }
-            let newData = try compileAssetsCar(
-                actoolURL: actoolURL,
-                normalizedPNG: normalizedPNG
-            )
-            try newData.write(to: assetCatalogURL, options: .atomic)
-            // CFBundleIconName key stays in Info.plist; Companion already set
-            // it at generation time.
-        } else {
-            // Clear the Info.plist pointer FIRST, then delete the file. If the
-            // file removal fails for any reason, the bundle stays consistent
-            // (no CFBundleIconName, falls back to AppIcon.icns regardless of
-            // whether a stale Assets.car is still on disk).
-            try mutateInfoPlist { plist in
-                plist.removeValue(forKey: Self.bundleIconNameInfoKey)
-            }
-            if FileManager.default.fileExists(atPath: assetCatalogURL.path) {
-                try FileManager.default.removeItem(at: assetCatalogURL)
+            do {
+                // SACRED: same normalized canvas as regenerateICNS — both must
+                // bake from the inset/rounded image, not raw full-bleed.
+                guard let rawImage = PopletIconRendering.loadImage(at: pngURL),
+                      let normalizedImage = PopletIconRendering.normalizedCanvas(from: rawImage)
+                else {
+                    throw PopletIconError.imageLoadFailed(pngURL)
+                }
+                let newData = try compileAssetsCar(
+                    actoolURL: actoolURL,
+                    normalizedImage: normalizedImage
+                )
+                try newData.write(to: assetCatalogURL, options: .atomic)
+                // CFBundleIconName key stays in Info.plist; Companion already set
+                // it at generation time.
+                return
+            } catch {
+                Self.logger.error(
+                    "asset catalog heal failed for \(bundleURL.lastPathComponent, privacy: .public); falling back to ICNS-only: \(error.localizedDescription, privacy: .public)"
+                )
             }
         }
+
+        try removeAssetCatalogFallback(assetCatalogURL: assetCatalogURL)
+    }
+
+    private func removeAssetCatalogFallback(assetCatalogURL: URL) throws {
+        // Clear the Info.plist pointer FIRST, then delete the file. If the
+        // file removal fails for any reason, the bundle stays consistent
+        // (no CFBundleIconName, falls back to AppIcon.icns regardless of
+        // whether a stale Assets.car is still on disk).
+        try mutateInfoPlist { plist in
+            plist.removeValue(forKey: Self.bundleIconNameInfoKey)
+        }
+        if FileManager.default.fileExists(atPath: assetCatalogURL.path) {
+            try FileManager.default.removeItem(at: assetCatalogURL)
+        }
+    }
+
+    private func iconsetPNGData(from normalizedImage: CGImage, pixelSize: Int) throws -> Data {
+        guard let data = PopletIconRendering.resizedPNGData(
+            from: normalizedImage,
+            pixelSize: pixelSize
+        ) else {
+            throw PopletIconError.iconsetVariantFailed("\(pixelSize)x\(pixelSize)")
+        }
+        return data
     }
 
     private static func locateActool() -> URL? {
@@ -310,7 +333,25 @@ struct PopletBundleIconHealer: Sendable {
         return nil
     }
 
-    private func compileAssetsCar(actoolURL: URL, normalizedPNG: Data) throws -> Data {
+    private static let appIconAssetCatalogContentsJSON = """
+    {
+      "images" : [
+        { "idiom" : "mac", "scale" : "1x", "size" : "16x16", "filename" : "icon_16x16.png" },
+        { "idiom" : "mac", "scale" : "2x", "size" : "16x16", "filename" : "icon_16x16@2x.png" },
+        { "idiom" : "mac", "scale" : "1x", "size" : "32x32", "filename" : "icon_32x32.png" },
+        { "idiom" : "mac", "scale" : "2x", "size" : "32x32", "filename" : "icon_32x32@2x.png" },
+        { "idiom" : "mac", "scale" : "1x", "size" : "128x128", "filename" : "icon_128x128.png" },
+        { "idiom" : "mac", "scale" : "2x", "size" : "128x128", "filename" : "icon_128x128@2x.png" },
+        { "idiom" : "mac", "scale" : "1x", "size" : "256x256", "filename" : "icon_256x256.png" },
+        { "idiom" : "mac", "scale" : "2x", "size" : "256x256", "filename" : "icon_256x256@2x.png" },
+        { "idiom" : "mac", "scale" : "1x", "size" : "512x512", "filename" : "icon_512x512.png" },
+        { "idiom" : "mac", "scale" : "2x", "size" : "512x512", "filename" : "icon_512x512@2x.png" }
+      ],
+      "info" : { "author" : "xcode", "version" : 1 }
+    }
+    """
+
+    private func compileAssetsCar(actoolURL: URL, normalizedImage: CGImage) throws -> Data {
         let tempRoot = FileManager.default.temporaryDirectory
             .appending(
                 path: "DockPopsPopletAssets-\(UUID().uuidString)",
@@ -332,37 +373,16 @@ struct PopletBundleIconHealer: Sendable {
         try FileManager.default.createDirectory(at: outputDirURL, withIntermediateDirectories: true)
         defer { try? FileManager.default.removeItem(at: tempRoot) }
 
-        // Single Universal slot using the full normalized canvas. actool
-        // downsamples to the smaller representations.
-        let imageFilename = "\(Self.iconName).png"
-        try normalizedPNG.write(to: appIconURL.appending(path: imageFilename), options: .atomic)
+        try Data(Self.appIconAssetCatalogContentsJSON.utf8)
+            .write(to: appIconURL.appending(path: "Contents.json"), options: .atomic)
 
-        let contentsJSON: [String: Any] = [
-            "info": ["author": "xcode", "version": 1],
-            "images": [
-                [
-                    "filename": imageFilename,
-                    "idiom": "mac",
-                    "platform": "macos",
-                    "size": "1024x1024",
-                ]
-            ],
-        ]
-        let contentsData = try JSONSerialization.data(
-            withJSONObject: contentsJSON,
-            options: [.prettyPrinted]
-        )
-        try contentsData.write(to: appIconURL.appending(path: "Contents.json"), options: .atomic)
-
-        let xcassetsContents: [String: Any] = ["info": ["author": "xcode", "version": 1]]
-        let xcassetsContentsData = try JSONSerialization.data(
-            withJSONObject: xcassetsContents,
-            options: [.prettyPrinted]
-        )
-        try xcassetsContentsData.write(
-            to: xcassetsURL.appending(path: "Contents.json"),
-            options: .atomic
-        )
+        for variant in Self.iconVariants {
+            let data = try iconsetPNGData(
+                from: normalizedImage,
+                pixelSize: variant.pixelSize
+            )
+            try data.write(to: appIconURL.appending(path: variant.name), options: .atomic)
+        }
 
         try runProcess(
             executable: actoolURL.path,
@@ -377,7 +397,14 @@ struct PopletBundleIconHealer: Sendable {
             failureMessage: "actool failed"
         )
 
-        return try Data(contentsOf: outputDirURL.appending(path: "Assets.car"))
+        let compiledCatalogURL = outputDirURL.appending(path: "Assets.car")
+        guard FileManager.default.fileExists(atPath: compiledCatalogURL.path) else {
+            throw PopletIconError.processFailed(
+                message: "actool produced no Assets.car",
+                output: outputDirURL.path
+            )
+        }
+        return try Data(contentsOf: compiledCatalogURL)
     }
 
     /// Writes `DockPopsIconRecipeVersion = Self.iconRecipeVersion` to the
