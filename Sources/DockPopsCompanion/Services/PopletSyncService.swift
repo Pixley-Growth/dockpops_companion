@@ -408,7 +408,30 @@ final class PopletSyncService: @unchecked Sendable {
 
             try signGeneratedPopletBundle(at: stagingBundleURL)
             try installGeneratedPopletBundle(at: stagingBundleURL, destinationURL: bundleURL)
-            applyFinderCustomIconIfPossible(resolvedIcon.image, to: bundleURL)
+            // ════════════════════════════════════════════════════════════
+            // SACRED ZONE #28 — DO NOT call `NSWorkspace.setIcon` here.
+            // ════════════════════════════════════════════════════════════
+            //
+            // The previous `applyFinderCustomIconIfPossible(_:to:)` call at
+            // this site was the Companion-side mirror of the same bug fixed
+            // in PopletBundleIconHealer at commit 7ca31d0 (and locked down
+            // via SACRED Zone #28 in 8d570d7 — see the healer's
+            // performHealIfStale for the full history).
+            //
+            // setIcon adds `Contents/Icon\r` + `kHasCustomIcon` in
+            // `com.apple.FinderInfo` xattr AFTER signing → invalidates
+            // the just-applied signature → Dock shows the generic-folder
+            // fallback briefly on every click while LaunchServices
+            // re-validates. The 4 Sacred Questions audit (2026-05-20)
+            // caught that #28 was enforced in the healer but missed
+            // here. Eto's mandate: no tech debt.
+            //
+            // The complete working recipe (icns at
+            // `Contents/Resources/AppIcon.icns` + `CFBundleIconFile =
+            // AppIcon` Info.plist key + codesign once + lsregister -f via
+            // refreshWorkspaceViews below) is sufficient. Adding setIcon
+            // only re-introduces the regression.
+            // ════════════════════════════════════════════════════════════
             refreshWorkspaceViews(for: bundleURL)
             return resolvedIcon.source
         }
@@ -735,20 +758,14 @@ final class PopletSyncService: @unchecked Sendable {
         }
     }
 
-    private func applyFinderCustomIconIfPossible(_ image: NSImage?, to bundleURL: URL) {
-        guard let image else { return }
-        let presentationIcon = image.normalizedPopletAppIcon() ?? image
-
-        // This intentionally runs after signing: Finder custom icons are stored
-        // in resource-fork/FinderInfo metadata, which codesign rejects.
-        guard NSWorkspace.shared.setIcon(presentationIcon, forFile: bundleURL.path, options: []) else {
-            Self.logger.error(
-                "Unable to apply Finder custom icon for \(bundleURL.lastPathComponent, privacy: .public)"
-            )
-            return
-        }
-        NSWorkspace.shared.noteFileSystemChanged(bundleURL.path)
-    }
+    // (Removed 2026-05-20) `applyFinderCustomIconIfPossible(_:to:)`
+    // deleted as part of the SACRED Zone #28 cleanup. The post-sign
+    // NSWorkspace.setIcon call this function performed was the Companion-
+    // side mirror of the bug fixed in PopletBundleIconHealer; both call
+    // sites now write CFBundleIconFile + Contents/Resources/AppIcon.icns
+    // and let lsregister pick it up, never touching Finder custom-icon
+    // metadata. See SACRED Zone #28 comment block in `writePopletBundle`
+    // above for the full rationale.
 
     private func signGeneratedPopletBundle(at bundleURL: URL) throws {
         // Poplet bundles are signed ad-hoc and WITHOUT entitlements. Click

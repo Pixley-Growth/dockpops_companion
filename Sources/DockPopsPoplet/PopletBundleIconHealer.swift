@@ -69,7 +69,7 @@ struct PopletBundleIconHealer: Sendable {
         guard FileManager.default.fileExists(atPath: sourcePNG.path) else { return }
         guard try sourceIsNewer(source: sourcePNG, target: targetICNS) else { return }
 
-        try await clearFinderCustomIconIfPresent()
+        try await removeLegacyFinderIconArtifacts()
         try regenerateICNS(from: sourcePNG, to: targetICNS)
         try signBundle(at: bundleURL)
         // ════════════════════════════════════════════════════════════════
@@ -182,8 +182,26 @@ struct PopletBundleIconHealer: Sendable {
         try icnsData.write(to: icnsURL, options: .atomic)
     }
 
+    /// One-shot purge of Finder custom-icon detritus a bundle may have
+    /// accumulated from a previous build (pre-SACRED-#28 Companion + Poplet
+    /// versions called `NSWorkspace.setIcon`, which planted both an
+    /// `Icon\r` resource-fork file in the bundle root and the
+    /// `kHasCustomIcon` bit in `com.apple.FinderInfo` xattr).
+    ///
+    /// Codesign rejects bundles carrying these artifacts in strict mode,
+    /// so the healer scrubs them before re-signing the bundle from
+    /// scratch.
+    ///
+    /// Earlier name was `clearFinderCustomIconIfPresent`, which implied a
+    /// paired `applyFinderCustomIconIfPossible`. That apply function is
+    /// gone per SACRED Zone #28; this remove operation is one-shot
+    /// cleanup, not the first half of a symmetric pair.
     @MainActor
-    private func clearFinderCustomIconIfPresent() throws {
+    private func removeLegacyFinderIconArtifacts() throws {
+        // `setIcon(nil, …)` is the documented way to clear a Finder
+        // custom icon. Older AppKit versions left orphaned FinderInfo
+        // bits even after this call, so we belt-and-suspender with the
+        // file/xattr removal below.
         _ = NSWorkspace.shared.setIcon(nil, forFile: bundleURL.path, options: [])
 
         let iconFileURL = bundleURL.appending(path: "Icon\r")
@@ -204,34 +222,13 @@ struct PopletBundleIconHealer: Sendable {
         }
     }
 
-    @MainActor
-    private func applyFinderCustomIconIfPossible(from pngURL: URL) {
-        let image: NSImage
-        if
-            let rawImage = PopletIconRendering.loadImage(at: pngURL),
-            let normalized = PopletIconRendering.normalizedCanvas(from: rawImage)
-        {
-            image = NSImage(
-                cgImage: normalized,
-                size: NSSize(width: CGFloat(normalized.width), height: CGFloat(normalized.height))
-            )
-        } else if let loadedImage = NSImage(contentsOf: pngURL) {
-            image = loadedImage
-        } else {
-            Self.logger.error(
-                "custom icon image load failed for \(bundleURL.lastPathComponent, privacy: .public): \(pngURL.path, privacy: .public)"
-            )
-            return
-        }
-
-        guard NSWorkspace.shared.setIcon(image, forFile: bundleURL.path, options: []) else {
-            Self.logger.error(
-                "custom icon apply failed for \(bundleURL.lastPathComponent, privacy: .public)"
-            )
-            return
-        }
-        NSWorkspace.shared.noteFileSystemChanged(bundleURL.path)
-    }
+    // (Removed 2026-05-20) `applyFinderCustomIconIfPossible(from:)`
+    // deleted per SACRED Zone #28 — see the inline block in
+    // `performHealIfStale`. The post-sign NSWorkspace.setIcon call this
+    // function performed was the root cause of the "Dock cycles through
+    // a generic folder icon on every click" symptom Eto reported. Kept
+    // gone permanently so it can't be re-introduced from a future
+    // refactor.
 
     private func signBundle(at url: URL) throws {
         try runProcess(

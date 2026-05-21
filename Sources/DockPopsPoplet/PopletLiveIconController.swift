@@ -85,6 +85,8 @@ final class PopletLiveIconController {
         }
     }
 
+    // MARK: - Public API
+
     func start() {
         stop()
         // Poll-on-launch first (reads the canonical disk PNG straight from
@@ -204,6 +206,8 @@ final class PopletLiveIconController {
         removeIconUpdateObserver()
     }
 
+    // MARK: - DNC observer (Main → Poplet iconUpdated events)
+
     /// Pull live icons directly from DockPops Main via DistributedNotification.
     /// Works whether or not the Companion is running — the Companion's mirror
     /// directory above remains as a fallback for the initial paint while the
@@ -240,6 +244,8 @@ final class PopletLiveIconController {
         }
         applyIconFromIPC(iconData)
     }
+
+    // MARK: - Icon application (in-memory NSApp.applicationIconImage updates)
 
     /// Apply an icon delivered over IPC. Bypasses the file-watcher signature
     /// dedup (which compares mtime + filesize of the mirrored PNG on disk).
@@ -306,6 +312,8 @@ final class PopletLiveIconController {
         return .applied
     }
 
+    // MARK: - Directory watcher (mirror PNG changes drive incremental refreshes)
+
     private func installDirectoryWatcher() {
         guard directorySource == nil else { return }
         guard let watchedDirectoryURL else { return }
@@ -350,6 +358,8 @@ final class PopletLiveIconController {
     /// apply. Replaces a pure trailing-edge 250ms debounce that kept resetting
     /// during continuous main-app writes and never applied until ~250ms after
     /// the drag ended.
+    // MARK: - Throttle / debounce / retry
+
     private func scheduleDebouncedRefresh() {
         debounceTask?.cancel()
         settleRetryTask?.cancel()
@@ -398,6 +408,8 @@ final class PopletLiveIconController {
             }
         }
     }
+
+    // MARK: - File signature + fallback rendering
 
     private func currentIconSignature() -> IconFileSignature? {
         guard let popIconURL else { return nil }
