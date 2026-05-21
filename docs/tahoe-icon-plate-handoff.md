@@ -1,7 +1,41 @@
 # Handoff: macOS 26 Tahoe white-plate on closed poplet Dock icons
 
-**Status:** ROOT CAUSE ISOLATED; workaround implemented in recipe version 11.
+**Status:** ROOT CAUSE ISOLATED; workaround implemented in recipe version 11; **healer parity completed 2026-05-21 (recipe version 13 — see "Update 2026-05-21" below)**.
 **Date:** 2026-05-17
+
+## Update 2026-05-21 — healer now mirrors the workaround on every click
+
+`PopletBundleIconHealer.performHealIfStale` now follows the same recipe that
+Companion uses at generation time:
+
+1. clear FinderInfo + `Icon\r`
+2. regenerate `AppIcon.icns` from canonical `PopIcons/<uuid>.png` (1024² master)
+   via `PopletIconRendering.normalizedCanvas` (matches Companion's
+   `normalizedPopletAppIcon` inset)
+3. regenerate `Assets.car` via `actool` if available, else delete + clear
+   `CFBundleIconName` from Info.plist
+4. stamp `DockPopsIconRecipeVersion = 13` into Info.plist
+5. `codesign --force --sign -`
+6. **reapply Finder custom icon from canonical `.png`** (SACRED #28 revised)
+7. `lsregister -f`
+
+The healer also now fires on `applicationShouldHandleReopen`, not only cold
+launch — so mid-session Pop edits reach disk on the next click instead of
+waiting for next logout. Source path moved from the stale Companion mirror
+to the canonical `.png` at
+`~/Library/Group Containers/group.com.dockpops.shared/PopIcons/<uuid>.png`.
+
+Recipe version bumped 11 → 13 to match the generator; future bumps will
+fire the version trigger correctly because the healer now writes the version
+back to Info.plist before signing.
+
+See `docs/specs/fix-healer-to-check-canonical-on-click-every-click.md` for
+the full spec and the verification status of "Path B" (Finder-custom-icon
+reapply post-sign). Verification status: spec ships Path B as the design; if
+a generic-folder flash is observed in practice, the spec requires
+STOP-and-redesign, not silent fallback to Path A (which re-introduces the
+Tahoe plate this whole document tracks).
+
 
 ## The bug
 

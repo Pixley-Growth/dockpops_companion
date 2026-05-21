@@ -1,0 +1,182 @@
+{
+  "feature": "fix-healer-to-check-canonical-on-click-every-click",
+  "title": "Fix Healer to Check Canonical on Every Click",
+  "status": "spec-complete",
+  "created": "2026-05-21",
+  "revised": "2026-05-21",
+  "revision_note": "Codex review #1: source corrected to full-quality .png; damage detection expanded; scripted post-heal sanity check added. Codex review #2: normalize/inset before bake; regenerate Assets.car (or remove if actool unavailable); stamp DockPopsIconRecipeVersion in Info.plist before signing; Path B verification failure is now STOP-and-redesign, not silent fallback to Path A.",
+  "contract": "On every click of a poplet, the poplet checks whether the bundle needs healing (canonical .png newer than ICNS, recipe version mismatch, missing ICNS, missing Icon\\r, or missing FinderInfo xattr) and rewrites the bundle in place from the 1024² canonical .png if so.",
+  "canonical_source": {
+    "path": "~/Library/Group Containers/group.com.dockpops.shared/PopIcons/<uuid>.png",
+    "resolution": "1024²",
+    "reason": ".live.png is a 256² derived runtime variant. iconutil needs 1024² to fill all ICNS slots without upscaling.",
+    "live_variant": {
+      "path": "~/Library/Group Containers/group.com.dockpops.shared/PopIcons/<uuid>.live.png",
+      "resolution": "256²",
+      "reader": "PopletLiveIconController only (applicationIconImage runtime path)"
+    }
+  },
+  "scope": {
+    "in_scope": [
+      "Wire healIfStale() into applicationShouldHandleReopen",
+      "Change healer source from Companion mirror to canonical .png (1024² master)",
+      "Normalize/inset via PopletIconRendering.normalizedCanvas before baking ICNS (match Companion's pipeline)",
+      "Regenerate or remove Assets.car during heal (regenerate if actool available, else delete + clear CFBundleIconName)",
+      "Stamp DockPopsIconRecipeVersion = 13 in bundle Info.plist before signing",
+      "Implement Path B in healer: strip + regenerate ICNS + Assets.car + recipe-stamp + sign + reapply Finder custom icon",
+      "Bump healer iconRecipeVersion from 11 to 13",
+      "Replace sourceIsNewer with bundleNeedsHeal (5 triggers)",
+      "Revise SACRED ZONE #28 to reflect new strategy",
+      "Update PopletSharedPaths SACRED docstring"
+    ],
+    "out_of_scope": [
+      "Cross-repo changes in DockPops Main (Codex's alternative structural fix deferred)",
+      "Changes to PopletSyncService.applyFinderCustomIconIfPossible",
+      "Removing PopletLiveIconMirror writer",
+      "Stored source fingerprint/hash in Info.plist (deferred strengthening)",
+      "New IPC mechanisms",
+      "Background helper / login-item agent",
+      "Sparkle / auto-update flow",
+      "Companion UI changes"
+    ]
+  },
+  "decisions": {
+    "trigger": "every click (cold launch + reopen)",
+    "source_path": "canonical .png (1024² master) in Group Containers, NOT .live.png",
+    "finder_icon_strategy": "Path B: strip + regenerate + sign + reapply, with manual flash verification + scripted post-heal check",
+    "latency": "detached on both triggers",
+    "repair_existing": "yes, on first click (driven by broader bundleNeedsHeal)",
+    "recipe_version": "bump healer to 13",
+    "concurrency": "existing flock is sufficient",
+    "dead_reapply_code": "keep, now wired in",
+    "missing_canonical": "skip heal, log info",
+    "reopen_order": "after refreshFromSharedContainer, before openPop",
+    "fallback_if_flash": "STOP and redesign. Path A is not an acceptable fallback because it re-introduces the Tahoe plate that US-2 rules out.",
+    "normalize_before_bake": "regenerateICNS pipes through PopletIconRendering.normalizedCanvas(from:) before baking iconset variants — matches Companion's normalizedPopletAppIcon path at PopletSyncService.swift:341",
+    "assets_car_strategy": "If actool available: regenerate via same path Companion uses. If actool unavailable (typical end-user machine): delete Contents/Resources/Assets.car AND remove CFBundleIconName key from Info.plist.",
+    "recipe_version_writeback": "Write DockPopsIconRecipeVersion = Self.iconRecipeVersion into bundle Info.plist BEFORE signing. Without this, future version bumps cause perpetual re-healing.",
+    "damage_detection_triggers": [
+      "recipe version mismatch",
+      "AppIcon.icns missing",
+      "canonical .png newer than AppIcon.icns",
+      "Contents/Icon\\r missing",
+      "com.apple.FinderInfo xattr missing"
+    ]
+  },
+  "user_stories": [
+    {
+      "id": "US-1",
+      "title": "Healer reads canonical .png and triggers on every click",
+      "description": "When user changes Pop members and clicks the poplet, the bundle is updated with the new composite from the 1024² master, including repair of 4.1-damaged bundles.",
+      "acceptance_criteria": [
+        "sourcePNG path is canonical .png (1024² master), not .live.png and not Companion mirror",
+        "applicationShouldHandleReopen kicks off detached healIfStale after refreshFromSharedContainer, before openPop",
+        "iconRecipeVersion = 13 in healer",
+        "bundleNeedsHeal returns true if any of: source newer, recipe mismatch, ICNS missing, Icon\\r missing, FinderInfo missing",
+        "regenerateICNS normalizes via PopletIconRendering.normalizedCanvas before bake (no raw full-bleed bake)",
+        "Heal handles Assets.car: regenerate via actool if available, else delete + clear CFBundleIconName",
+        "After heal, bundle Info.plist contains DockPopsIconRecipeVersion = 13 (stamped before signing)",
+        "Missing canonical: log info and return cleanly",
+        "Idempotent: subsequent click with no changes does not rewrite (all 5 triggers return false)",
+        "4.1-damaged bundle IS rewritten on first click after fix (Finder custom icon repair)",
+        "Rapid double-click does not corrupt the bundle"
+      ]
+    },
+    {
+      "id": "US-2",
+      "title": "Healer applies Finder custom icon and verification confirms no flash",
+      "description": "Closed Dock tile and Finder view show current composite with no Tahoe plate; clicking shows no generic-folder blink.",
+      "acceptance_criteria": [
+        "performHealIfStale sequence ends with applyFinderCustomIconIfPossible(from: sourcePNG) before registerWithLaunchServices",
+        "line 208 function is no longer dead code",
+        "Manual visual check: 10+ rapid clicks show no generic-folder blink",
+        "Scripted check confirms post-heal: Icon\\r exists, FinderInfo xattr exists; codesign --verify --strict output captured (informational)",
+        "If blink visible OR scripted check fails: STOP and redesign (NOT silent fallback to Path A — Path A re-introduces Tahoe plate)",
+        "After heal, Finder view of bundle shows fresh composite with no Tahoe plate",
+        "After logout/login, closed Dock tile shows fresh composite with no Tahoe plate"
+      ]
+    },
+    {
+      "id": "US-3",
+      "title": "SACRED zones and docstrings updated to match new behavior",
+      "description": "Inline SACRED comments accurately describe Path B strategy, .png-as-source choice, and verification result.",
+      "acceptance_criteria": [
+        "PopletBundleIconHealer.swift:75-107 SACRED #28 rewritten to document Path B and .png source choice",
+        "If verification fell back to Path A, SACRED #28 documents Path A instead",
+        "PopletSharedPaths.swift:27-60 docstring updated to clarify mirror is Companion-internal",
+        "docs/tahoe-icon-plate-handoff.md gains a dated status note for 2026-05-21"
+      ]
+    }
+  ],
+  "non_functional_requirements": [
+    {"id": "NFR-1", "requirement": "Click-to-popover-open latency unchanged from current baseline"},
+    {"id": "NFR-2", "requirement": "Rapid double-clicks must not corrupt bundle (existing flock sufficient)"},
+    {"id": "NFR-3", "requirement": "No generic-folder flash on click (manually verified + scripted check)"},
+    {"id": "NFR-4", "requirement": "Idempotent: repeated heals with no canonical change AND no damage are no-ops"}
+  ],
+  "phases": [
+    {
+      "id": 1,
+      "name": "Source + trigger + broader damage detection + normalize + Assets.car + recipe stamp",
+      "tasks": [
+        "Change healer sourcePNG to canonical .png (1024² master)",
+        "Bump healer iconRecipeVersion to 13",
+        "Replace sourceIsNewer with bundleNeedsHeal (5 triggers)",
+        "Update regenerateICNS to call PopletIconRendering.normalizedCanvas before baking iconset variants",
+        "Add regenerateOrRemoveAssetsCar: regenerate via actool if available, else delete Assets.car + clear CFBundleIconName",
+        "Add stampRecipeVersionInInfoPlist: write DockPopsIconRecipeVersion before signing",
+        "Wire detached healIfStale into applicationShouldHandleReopen"
+      ],
+      "verification": "Xcode build clean; damaged poplet heals on click; post-heal xattr/Icon\\r checks pass; Info.plist DockPopsIconRecipeVersion = 13; Assets.car regenerated (dev) or removed + CFBundleIconName cleared (non-Xcode); second click with no changes is a no-op (logs only)"
+    },
+    {
+      "id": 2,
+      "name": "Path B reapply + flash verification + scripted sanity check",
+      "tasks": [
+        "Add applyFinderCustomIconIfPossible(from: sourcePNG) call after signBundle in performHealIfStale",
+        "Manual test: damage a poplet, click 10+ times rapidly, observe Dock tile",
+        "Scripted check: ls Icon\\r exists; xattr lists FinderInfo; codesign --verify --strict output captured",
+        "If no blink AND scripted check passes: commit Path B; if blink OR check fails: revert to Path A"
+      ],
+      "verification": "Visual inspection + scripted post-heal artifact assertions; closed Dock tile after logout/login shows fresh composite without Tahoe plate"
+    },
+    {
+      "id": 3,
+      "name": "SACRED + docs cleanup",
+      "tasks": [
+        "Rewrite SACRED ZONE #28 in PopletBundleIconHealer.swift (including .png source rationale)",
+        "Update PopletSharedPaths SACRED docstring",
+        "Append dated status note to tahoe-icon-plate-handoff.md"
+      ],
+      "verification": "Comments accurately describe current code behavior to a fresh reader"
+    }
+  ],
+  "files_touched": [
+    "Sources/DockPopsPoplet/PopletBundleIconHealer.swift",
+    "Sources/DockPopsPoplet/DockPopsPopletMain.swift",
+    "Sources/DockPopsPoplet/PopletSharedPaths.swift",
+    "docs/tahoe-icon-plate-handoff.md"
+  ],
+  "risks": [
+    "Path B leaves bundle signature invalid under --strict; healer runs repeatedly (vs once at generation time) so LSD behavior may differ",
+    "Non-atomic write of canonical .png could be read mid-write; mitigated by skipping heal on read failure",
+    "Adding heal to every reopen multiplies codesign invocations; bundleNeedsHeal short-circuits the steady-state to ~stat calls",
+    "7ca31d0 flash diagnosis may need re-validation; Phase 2 verification covers this",
+    "Codex P1/P2: This fix is repair-on-next-click, not self-update-while-closed. Cross-repo Main-owns-bundles alternative deferred.",
+    "Codex P2: bundleNeedsHeal triggers on file presence, not content hash. Stored fingerprint in Info.plist deferred as strengthening pass.",
+    "Codex review #2: actool is bundled with Xcode and typically absent on end-user machines. Assets.car path therefore needs both branches; delete-path is the normal user case.",
+    "Codex review #2: Writing Info.plist before signing means signature covers the updated version stamp. Writing after would invalidate the strict signature for an extra reason (beyond just FinderInfo)."
+  ],
+  "codex_review_responses": {
+    "review_1_P1_source_should_be_png_not_live_png": "ACCEPTED — spec corrected. Healer now reads .png (1024² master); .live.png remains for runtime path only.",
+    "review_1_P1_poplets_mutating_signed_bundle": "ACKNOWLEDGED — already captured as Risk 1; user explicitly chose Path B with flash verification during interview.",
+    "review_1_P1_P2_fixes_on_next_click_not_while_closed": "ACKNOWLEDGED — captured as Risk 5; cross-repo Main-owns-bundles alternative explicitly out of scope per user.",
+    "review_1_P2_timestamp_only_healing_too_weak": "ACCEPTED — spec corrected. sourceIsNewer replaced by bundleNeedsHeal with 5 triggers including Icon\\r and FinderInfo presence checks.",
+    "review_1_P2_verification_too_manual": "PARTIALLY ACCEPTED — scripted post-heal sanity check added (Icon\\r presence, FinderInfo presence, codesign --strict output capture); visual inspection retained as user's explicit choice.",
+    "review_2_P1_normalize_inset_before_bake": "ACCEPTED — regenerateICNS now pipes through PopletIconRendering.normalizedCanvas(from:) before baking iconset variants.",
+    "review_2_P1_assets_car_ignored": "ACCEPTED — added regenerateOrRemoveAssetsCar step: regenerate via actool if available, else delete Assets.car + clear CFBundleIconName from Info.plist.",
+    "review_2_P1_P2_recipe_version_writeback": "ACCEPTED — added stampRecipeVersionInInfoPlist step before signing to prevent perpetual re-heal on future version bumps.",
+    "review_2_P2_path_B_fallback_conflict": "ACCEPTED — Path B failure is now STOP-and-redesign, NOT silent fallback to Path A. US-2, Phase 2, and NFR-3 all updated.",
+    "review_2_P2_FinderInfo_bit_check": "ACKNOWLEDGED — first-pass implementation checks xattr presence; refining to check kHasCustomIcon bit specifically is acceptable but not required (the healer's own clear path removes the whole xattr, so presence is a sufficient proxy)."
+  }
+}

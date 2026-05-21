@@ -1,0 +1,48 @@
+FEATURE: fix-healer-to-check-canonical-on-click-every-click
+CREATED: 2026-05-21
+REVISED: 2026-05-21 (Codex review #1: .png master source, broader damage detection, scripted check)
+REVISED: 2026-05-21 (Codex review #2: normalize/inset, Assets.car handling, recipe write-back, Path B failure = stop-and-redesign)
+
+IMPLEMENTATION COMPLETE on branch fix/healer-canonical-every-click (2026-05-21).
+Awaiting user runtime verification — see "VERIFICATION DEFERRED" below.
+
+PHASE 1 — Source + trigger + damage detection + normalize + Assets.car + recipe stamp
+STATUS: [CODE COMPLETE]
+- [DONE] Change PopletBundleIconHealer.sourcePNG to canonical .png (1024² master) — NOT .live.png
+- [DONE] Drop PopletSharedPaths.assertUsesMirroredLiveIconFile precondition in healer init
+- [DONE] Bump PopletBundleIconHealer.iconRecipeVersion 11 → 13
+- [DONE] Replace sourceIsNewer with bundleNeedsHeal — 5 triggers: recipe mismatch, missing ICNS, source newer, missing Icon\r, missing FinderInfo
+- [DONE] Update regenerateICNS: load .png → PopletIconRendering.normalizedCanvas → bake variants
+- [DONE] Add regenerateOrRemoveAssetsCar: actool→regenerate (with normalized canvas); else delete Assets.car AFTER clearing CFBundleIconName (safer failure ordering)
+- [DONE] Add stampRecipeVersionInInfoPlist: write DockPopsIconRecipeVersion=13 before signing
+- [DONE] Add detached healer.healIfStale() to applicationShouldHandleReopen after refreshFromSharedContainer, before openPop
+- [DONE] Fix latent Bundle-cache bug: storedIconRecipeVersion now reads Info.plist from disk directly, not via Bundle.main (which caches at process startup → would cause perpetual re-heal after a version bump)
+- [DONE] Build verified clean
+
+PHASE 2 — Path B reapply
+STATUS: [CODE COMPLETE]
+- [DONE] applyFinderCustomIconIfPossible(from: sourcePNG) called in performHealIfStale after signBundle, before registerWithLaunchServices
+- [DONE] SACRED #28 revised to document Path B intent and the verification gate
+
+PHASE 3 — SACRED + docs cleanup
+STATUS: [CODE COMPLETE]
+- [DONE] Rewrite SACRED ZONE #28 in PopletBundleIconHealer.swift to document Path B
+- [DONE] Update PopletSharedPaths.swift docstring (mirror is Companion-internal)
+- [DONE] Append "Update 2026-05-21" section to docs/tahoe-icon-plate-handoff.md
+
+VERIFICATION DEFERRED (per user request — they don't want to do PlistBuddy/xattr checks)
+- [DEFERRED] Manual verification: click damaged poplet, observe heal in Console.app logs
+- [DEFERRED] Manual flash check: 10+ rapid clicks, watch Dock tile for generic-folder blink
+- [DEFERRED] Scripted post-heal check (ls Icon\r / xattr FinderInfo / codesign --strict)
+- [DEFERRED] Cold-launch (logout/login) verification of closed-tile rendering
+
+If verification reveals problems:
+- generic-folder flash visible → per spec, STOP and redesign (do NOT silently fall back to Path A — Path A re-introduces Tahoe plate)
+- icons not updating on click → revisit which of the 5 bundleNeedsHeal triggers is missing
+- Tahoe plate still visible after heal → setIcon path may need re-signing experiment, OR LaunchServices isn't picking up new bundle state (try lsregister cadence)
+
+FILES TOUCHED
+- Sources/DockPopsPoplet/PopletBundleIconHealer.swift (substantial)
+- Sources/DockPopsPoplet/DockPopsPopletMain.swift (15 lines added to applicationShouldHandleReopen)
+- Sources/DockPopsPoplet/PopletSharedPaths.swift (docstring only)
+- docs/tahoe-icon-plate-handoff.md (status update prepended)

@@ -1,13 +1,27 @@
 import Foundation
 
-/// SACRED CODE:
-/// Poplets are intentionally cut off from DockPops' protected shared container
-/// and private preferences container. They may read only from the companion's
-/// mirrored live-icon cache in Application Support.
+/// SACRED CODE — UPDATED 2026-05-21:
 ///
-/// Do not add raw `group.com.dockpops.shared` or DockPops prefs paths back to
-/// this file unless you want to reintroduce repeated permission prompts and
-/// "why did all the icons turn generic blue?" regressions.
+/// The mirror in `~/Library/Application Support/DockPops Companion/PopletLiveIcons/`
+/// is a Companion-internal cache. It is NOT the Poplet's source of truth.
+///
+/// Two Poplet read paths have been moved off the mirror:
+///   • `PopletLiveIconController` reads the canonical `<uuid>.live.png`
+///     (256² runtime variant) directly from
+///     `~/Library/Group Containers/group.com.dockpops.shared/PopIcons/` for
+///     the running tile.
+///   • `PopletBundleIconHealer` reads the canonical `<uuid>.png` (1024²
+///     master) from the same directory for closed-bundle repair.
+///
+/// Both reads are by hardcoded ABSOLUTE PATH (POSIX permissions only, no
+/// entitlement, no TCC prompt). The mirror is kept up to date by Companion
+/// for any Companion-side feature that wants a project-managed copy, but it
+/// is NOT load-bearing for Poplet icon correctness anymore — Companion is a
+/// foreground app that is closed most of the time, so the mirror lags reality.
+///
+/// Do not point Poplet readers at this mirror. If you do, mid-session Pop
+/// edits won't reach the Poplet until the user next opens Companion, which
+/// they basically never do.
 enum PopletSharedPaths {
     static let dockPopsBundleIdentifier = "com.dockpops.app"
 

@@ -124,6 +124,21 @@ private final class DockPopsPopletDelegate: NSObject, NSApplicationDelegate {
         // Companion was closed (DNC iconUpdated may have been missed by
         // the mirror's file watcher; the disk PNG is the source of truth).
         liveIconController?.refreshFromSharedContainer()
+
+        // Closed-bundle repair on EVERY click. Poplets are .accessory+resident,
+        // so applicationDidFinishLaunching fires only once per session — the
+        // healer must also run on reopen, otherwise mid-session Pop edits never
+        // reach disk and Finder / cold-launch tiles stay stale.
+        if let popID = UUID(uuidString: rawPopID) {
+            let healer = PopletBundleIconHealer(
+                popID: popID,
+                bundleURL: Bundle.main.bundleURL
+            )
+            Task.detached(priority: .utility) {
+                await healer.healIfStale()
+            }
+        }
+
         openPop()
         return false
     }

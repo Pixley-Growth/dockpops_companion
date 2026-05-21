@@ -17,8 +17,9 @@ struct PopletBundleIconHealer: Sendable {
         category: "IconHealer"
     )
     private static let iconName = "AppIcon"
-    private static let iconRecipeVersion = 11
+    private static let iconRecipeVersion = 13
     private static let iconRecipeVersionInfoKey = "DockPopsIconRecipeVersion"
+    private static let bundleIconNameInfoKey = "CFBundleIconName"
     private static let iconVariants: [(name: String, pixelSize: Int)] = [
         ("icon_16x16.png", 16),
         ("icon_16x16@2x.png", 32),
@@ -41,10 +42,17 @@ struct PopletBundleIconHealer: Sendable {
     init(popID: UUID, bundleURL: URL) {
         self.popID = popID
         self.bundleURL = bundleURL
-        self.sourcePNG = PopletSharedPaths.mirroredPopIconURL(for: popID)
-        if let sourcePNG {
-            PopletSharedPaths.assertUsesMirroredLiveIconFile(sourcePNG)
-        }
+        // Canonical 1024² master written by DockPops Main. NOT the Companion
+        // mirror (stale when Companion isn't running) and NOT .live.png (256²
+        // runtime variant — too small for iconutil's 1024² slot).
+        self.sourcePNG = Self.canonicalPopIconURL(for: popID)
+    }
+
+    private static func canonicalPopIconURL(for popID: UUID) -> URL {
+        FileManager.default.homeDirectoryForCurrentUser
+            .appending(path: "Library/Group Containers/group.com.dockpops.shared", directoryHint: .isDirectory)
+            .appending(path: "PopIcons", directoryHint: .isDirectory)
+            .appending(path: "\(popID.uuidString).png")
     }
 
     func healIfStale() async {
@@ -66,45 +74,53 @@ struct PopletBundleIconHealer: Sendable {
             .appending(path: "Resources", directoryHint: .isDirectory)
             .appending(path: "\(Self.iconName).icns")
 
-        guard FileManager.default.fileExists(atPath: sourcePNG.path) else { return }
-        guard try sourceIsNewer(source: sourcePNG, target: targetICNS) else { return }
+        guard FileManager.default.fileExists(atPath: sourcePNG.path) else {
+            Self.logger.info("canonical missing for \(self.bundleURL.lastPathComponent, privacy: .public)")
+            return
+        }
+        guard try bundleNeedsHeal(source: sourcePNG, target: targetICNS) else { return }
 
         try await clearFinderCustomIconIfPresent()
         try regenerateICNS(from: sourcePNG, to: targetICNS)
+        try regenerateOrRemoveAssetsCar(from: sourcePNG)
+        try stampRecipeVersionInInfoPlist()
         try signBundle(at: bundleURL)
         // ════════════════════════════════════════════════════════════════
-        // SACRED ZONE #28 — DO NOT CALL `NSWorkspace.setIcon` HERE
+        // SACRED ZONE #28 — REVISED 2026-05-21
         // ════════════════════════════════════════════════════════════════
         //
-        // History: every time someone tries to "make the Dock notice the
-        // new icon faster" by calling `NSWorkspace.setIcon(image,
-        // forFile: bundleURL.path)`, the symptom returns: the Dock tile
-        // cycles through a generic folder icon on every click before
-        // settling on the real composite. Verified 2026-05-20 by Eto;
-        // root cause documented in cal/analyses/dynamic-icon-signing.md
-        // and in the 2026-04-15+ DELTA logs.
+        // Apply the Finder custom icon AFTER signing. This is the same
+        // "Path B" ordering Companion uses at generation time
+        // (PopletSyncService.applyFinderCustomIconIfPossible). The
+        // Finder custom icon is the load-bearing escape hatch from
+        // macOS' static app-icon rendering path that adds the Tahoe
+        // plate around runtime-generated bundles — see
+        // docs/tahoe-icon-plate-handoff.md. Without this reapply, the
+        // closed Dock tile and Finder view show the plated icon even
+        // when the underlying AppIcon.icns / Assets.car / Info.plist
+        // are all correct.
         //
-        // Why setIcon breaks: it writes BOTH a `Contents/Icon\r`
-        // resource-fork file AND the `kHasCustomIcon` bit in
-        // `com.apple.FinderInfo` xattr. Both happen AFTER `signBundle`
-        // just above, so both invalidate the signature. LaunchServices
-        // then falls back to the generic-folder icon while it
-        // re-validates.
+        // PRIOR ART (`7ca31d0`, this comment's previous content): the
+        // earlier SACRED #28 forbade this call because user-reported
+        // "Dock cycles through a generic folder icon" on every click.
+        // That diagnosis is conditional on observer timing — the live
+        // icon controller now starts synchronously in
+        // applicationDidFinishLaunching, well before this detached heal
+        // task could invalidate the bundle signature, and applicationIcon-
+        // Image overrides the static-bundle render path for the running
+        // tile. So the flash should not be user-visible. If a flash IS
+        // observed in practice, the spec
+        // docs/specs/fix-healer-to-check-canonical-on-click-every-click.md
+        // requires a STOP-and-redesign — NOT a silent fallback to
+        // strip-without-reapply, which re-introduces the Tahoe plate.
         //
-        // What works (already in place above):
-        //   • `Contents/Resources/AppIcon.icns` was regenerated from the
-        //     fresh `.live.png` at line 73.
-        //   • Bundle's `CFBundleIconFile = AppIcon` Info.plist key tells
-        //     LaunchServices to use that icns.
-        //   • `signBundle` at line 74 produces a clean signature.
-        //   • `registerWithLaunchServices` below tells `lsd` to pick up
-        //     the fresh icns without re-launching.
-        //
-        // That's the complete recipe. Adding `setIcon` only re-introduces
-        // the bug. If a future maintainer "needs to make icons update
-        // faster," investigate `lsregister -f` cadence or Dock cache
-        // flush — NOT `setIcon`.
+        // The signature is intentionally invalidated by setIcon (it
+        // writes Icon\r + FinderInfo xattr). codesign --verify --strict
+        // will fail post-heal; macOS' normal LaunchServices path
+        // accepts it. This is the same trade-off Companion accepts at
+        // generation time.
         // ════════════════════════════════════════════════════════════════
+        await applyFinderCustomIconIfPossible(from: sourcePNG)
         registerWithLaunchServices(bundleURL: bundleURL)
 
         Self.logger.info(
@@ -112,25 +128,68 @@ struct PopletBundleIconHealer: Sendable {
         )
     }
 
-    private func sourceIsNewer(source: URL, target: URL) throws -> Bool {
-        guard FileManager.default.fileExists(atPath: target.path) else { return true }
+    /// Returns true when the bundle's on-disk icon state diverges from the
+    /// current source-of-truth or has been damaged.
+    ///
+    /// Five triggers, any of which forces a heal:
+    /// 1. Stored `DockPopsIconRecipeVersion` doesn't match this healer's version
+    /// 2. `Contents/Resources/AppIcon.icns` missing
+    /// 3. Source (canonical .png) is newer than `AppIcon.icns`
+    /// 4. `Contents/Icon\r` missing (Finder custom icon resource damaged/stripped)
+    /// 5. `com.apple.FinderInfo` xattr missing on bundle (Tahoe-plate workaround stripped)
+    private func bundleNeedsHeal(source: URL, target: URL) throws -> Bool {
+        // Trigger 1
         if storedIconRecipeVersion() != Self.iconRecipeVersion {
             return true
         }
+        // Trigger 2
+        guard FileManager.default.fileExists(atPath: target.path) else {
+            return true
+        }
+        // Trigger 3
         let sourceDate = try source.resourceValues(
             forKeys: [.contentModificationDateKey]
         ).contentModificationDate
         let targetDate = try target.resourceValues(
             forKeys: [.contentModificationDateKey]
         ).contentModificationDate
-        guard let sourceDate, let targetDate else { return true }
-        return sourceDate > targetDate
+        if let sourceDate, let targetDate, sourceDate > targetDate {
+            return true
+        }
+        // Trigger 4
+        let iconResourceURL = bundleURL.appending(path: "Icon\r")
+        if !FileManager.default.fileExists(atPath: iconResourceURL.path) {
+            return true
+        }
+        // Trigger 5
+        if !hasFinderCustomIconAttribute(bundleURL: bundleURL) {
+            return true
+        }
+        return false
+    }
+
+    private func hasFinderCustomIconAttribute(bundleURL: URL) -> Bool {
+        bundleURL.withUnsafeFileSystemRepresentation { path -> Bool in
+            guard let path else { return false }
+            let size = Darwin.getxattr(path, "com.apple.FinderInfo", nil, 0, 0, 0)
+            return size > 0
+        }
     }
 
     private func storedIconRecipeVersion() -> Int? {
+        // Read Info.plist directly from disk. `Bundle(url:)?.infoDictionary`
+        // routes through the global Bundle cache, which is loaded once at
+        // process startup and never refreshed. Since `stampRecipeVersionInInfoPlist`
+        // writes to disk during a heal, the Bundle-cache reader would keep
+        // returning the pre-startup value forever — making the version trigger
+        // re-fire on every subsequent click within the same poplet session.
+        let infoPlistURL = bundleURL
+            .appending(path: "Contents", directoryHint: .isDirectory)
+            .appending(path: "Info.plist")
         guard
-            let infoDictionary = Bundle(url: bundleURL)?.infoDictionary,
-            let recipeVersion = infoDictionary[Self.iconRecipeVersionInfoKey] as? Int
+            let data = try? Data(contentsOf: infoPlistURL),
+            let plist = try? PropertyListSerialization.propertyList(from: data, options: [], format: nil) as? [String: Any],
+            let recipeVersion = plist[Self.iconRecipeVersionInfoKey] as? Int
         else {
             return nil
         }
@@ -139,6 +198,15 @@ struct PopletBundleIconHealer: Sendable {
 
     private func regenerateICNS(from pngURL: URL, to icnsURL: URL) throws {
         guard let rawImage = PopletIconRendering.loadImage(at: pngURL) else {
+            throw PopletIconError.imageLoadFailed(pngURL)
+        }
+        // SACRED: bake from the NORMALIZED/inset canvas, not raw full-bleed.
+        // Companion's PopletSyncService:341 calls `normalizedPopletAppIcon()`
+        // before baking; if the healer bakes raw, the closed Dock tile renders
+        // ~15% oversized vs sibling icons (regression 48f9cad). The
+        // `PopletIconRendering.contentScale` / `cornerRadiusRatio` constants
+        // mirror that path.
+        guard let normalizedImage = PopletIconRendering.normalizedCanvas(from: rawImage) else {
             throw PopletIconError.imageLoadFailed(pngURL)
         }
 
@@ -161,7 +229,7 @@ struct PopletBundleIconHealer: Sendable {
 
         for variant in Self.iconVariants {
             guard let data = PopletIconRendering.resizedPNGData(
-                from: rawImage,
+                from: normalizedImage,
                 pixelSize: variant.pixelSize
             ) else {
                 throw PopletIconError.iconsetVariantFailed(variant.name)
@@ -180,6 +248,168 @@ struct PopletBundleIconHealer: Sendable {
 
         let icnsData = try Data(contentsOf: builtICNSURL)
         try icnsData.write(to: icnsURL, options: .atomic)
+    }
+
+    /// Handles `Assets.car` parity with Companion's bake. The bundle's
+    /// `CFBundleIconName` Info.plist key points LaunchServices at the
+    /// asset-catalog icon when present; we MUST either refresh that catalog
+    /// or remove the pointer, otherwise a stale `Assets.car` keeps painting
+    /// the old composite on closed tiles.
+    ///
+    /// `actool` ships with Xcode, not macOS — typical end-user machines do
+    /// not have it. In that case the catalog is removed and `CFBundleIconName`
+    /// is cleared so LaunchServices falls back to the fresh `AppIcon.icns`.
+    private func regenerateOrRemoveAssetsCar(from pngURL: URL) throws {
+        let resourcesURL = bundleURL
+            .appending(path: "Contents", directoryHint: .isDirectory)
+            .appending(path: "Resources", directoryHint: .isDirectory)
+        let assetCatalogURL = resourcesURL.appending(path: "Assets.car")
+
+        if let actoolURL = Self.locateActool() {
+            // SACRED: same normalized canvas as regenerateICNS — both must
+            // bake from the inset/rounded image, not raw full-bleed.
+            guard let rawImage = PopletIconRendering.loadImage(at: pngURL),
+                  let normalizedImage = PopletIconRendering.normalizedCanvas(from: rawImage),
+                  let normalizedPNG = PopletIconRendering.pngData(from: normalizedImage)
+            else {
+                throw PopletIconError.imageLoadFailed(pngURL)
+            }
+            let newData = try compileAssetsCar(
+                actoolURL: actoolURL,
+                normalizedPNG: normalizedPNG
+            )
+            try newData.write(to: assetCatalogURL, options: .atomic)
+            // CFBundleIconName key stays in Info.plist; Companion already set
+            // it at generation time.
+        } else {
+            // Clear the Info.plist pointer FIRST, then delete the file. If the
+            // file removal fails for any reason, the bundle stays consistent
+            // (no CFBundleIconName, falls back to AppIcon.icns regardless of
+            // whether a stale Assets.car is still on disk).
+            try mutateInfoPlist { plist in
+                plist.removeValue(forKey: Self.bundleIconNameInfoKey)
+            }
+            if FileManager.default.fileExists(atPath: assetCatalogURL.path) {
+                try FileManager.default.removeItem(at: assetCatalogURL)
+            }
+        }
+    }
+
+    private static func locateActool() -> URL? {
+        // Avoid triggering Command Line Tools installer; only return actool
+        // if it actually exists at the expected path.
+        let candidates = [
+            "/Applications/Xcode.app/Contents/Developer/usr/bin/actool",
+            "/Library/Developer/CommandLineTools/usr/bin/actool",
+        ]
+        for path in candidates {
+            if FileManager.default.fileExists(atPath: path) {
+                return URL(fileURLWithPath: path)
+            }
+        }
+        return nil
+    }
+
+    private func compileAssetsCar(actoolURL: URL, normalizedPNG: Data) throws -> Data {
+        let tempRoot = FileManager.default.temporaryDirectory
+            .appending(
+                path: "DockPopsPopletAssets-\(UUID().uuidString)",
+                directoryHint: .isDirectory
+            )
+        let xcassetsURL = tempRoot.appending(
+            path: "Sources.xcassets",
+            directoryHint: .isDirectory
+        )
+        let appIconURL = xcassetsURL.appending(
+            path: "\(Self.iconName).appiconset",
+            directoryHint: .isDirectory
+        )
+        let outputDirURL = tempRoot.appending(
+            path: "out",
+            directoryHint: .isDirectory
+        )
+        try FileManager.default.createDirectory(at: appIconURL, withIntermediateDirectories: true)
+        try FileManager.default.createDirectory(at: outputDirURL, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: tempRoot) }
+
+        // Single Universal slot using the full normalized canvas. actool
+        // downsamples to the smaller representations.
+        let imageFilename = "\(Self.iconName).png"
+        try normalizedPNG.write(to: appIconURL.appending(path: imageFilename), options: .atomic)
+
+        let contentsJSON: [String: Any] = [
+            "info": ["author": "xcode", "version": 1],
+            "images": [
+                [
+                    "filename": imageFilename,
+                    "idiom": "mac",
+                    "platform": "macos",
+                    "size": "1024x1024",
+                ]
+            ],
+        ]
+        let contentsData = try JSONSerialization.data(
+            withJSONObject: contentsJSON,
+            options: [.prettyPrinted]
+        )
+        try contentsData.write(to: appIconURL.appending(path: "Contents.json"), options: .atomic)
+
+        let xcassetsContents: [String: Any] = ["info": ["author": "xcode", "version": 1]]
+        let xcassetsContentsData = try JSONSerialization.data(
+            withJSONObject: xcassetsContents,
+            options: [.prettyPrinted]
+        )
+        try xcassetsContentsData.write(
+            to: xcassetsURL.appending(path: "Contents.json"),
+            options: .atomic
+        )
+
+        try runProcess(
+            executable: actoolURL.path,
+            arguments: [
+                "--compile", outputDirURL.path,
+                "--platform", "macosx",
+                "--minimum-deployment-target", "14.0",
+                "--app-icon", Self.iconName,
+                "--output-partial-info-plist", tempRoot.appending(path: "partial.plist").path,
+                xcassetsURL.path,
+            ],
+            failureMessage: "actool failed"
+        )
+
+        return try Data(contentsOf: outputDirURL.appending(path: "Assets.car"))
+    }
+
+    /// Writes `DockPopsIconRecipeVersion = Self.iconRecipeVersion` to the
+    /// bundle's Info.plist. MUST run before `signBundle` so the signature
+    /// covers the updated version. Without this, future version bumps cause
+    /// the recipe-mismatch trigger to fire on every click forever.
+    private func stampRecipeVersionInInfoPlist() throws {
+        try mutateInfoPlist { plist in
+            plist[Self.iconRecipeVersionInfoKey] = Self.iconRecipeVersion
+        }
+    }
+
+    private func mutateInfoPlist(_ mutate: (inout [String: Any]) -> Void) throws {
+        let infoPlistURL = bundleURL
+            .appending(path: "Contents", directoryHint: .isDirectory)
+            .appending(path: "Info.plist")
+        let data = try Data(contentsOf: infoPlistURL)
+        var format = PropertyListSerialization.PropertyListFormat.xml
+        guard var plist = try PropertyListSerialization.propertyList(
+            from: data,
+            options: [],
+            format: &format
+        ) as? [String: Any] else {
+            throw PopletIconError.imageLoadFailed(infoPlistURL)
+        }
+        mutate(&plist)
+        let outData = try PropertyListSerialization.data(
+            fromPropertyList: plist,
+            format: format,
+            options: 0
+        )
+        try outData.write(to: infoPlistURL, options: .atomic)
     }
 
     @MainActor
