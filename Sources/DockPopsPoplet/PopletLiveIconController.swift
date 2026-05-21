@@ -104,20 +104,32 @@ final class PopletLiveIconController {
         installIconUpdateObserver()
     }
 
-    /// Poll-on-click: read the composite PNG straight from the shared
-    /// container's `PopIcons/<uuid>.png` (Main writes it atomically there)
-    /// and apply it to `NSApp.applicationIconImage`. Call from
-    /// `applicationDidFinishLaunching` (initial paint) and from
+    /// Poll-on-click: read the 256×256 composite PNG straight from the
+    /// shared container's `PopIcons/<uuid>.live.png` sidecar (Main writes
+    /// it atomically there alongside the 1024² `<uuid>.png` for
+    /// Companion's icns) and apply it to `NSApp.applicationIconImage`.
+    /// Call from `applicationDidFinishLaunching` (initial paint) and from
     /// `applicationShouldHandleReopen` (catches Pop edits made while the
     /// Poplet wasn't running OR while Companion wasn't running).
     ///
     /// Per cross-repo handoff `docs/handoffs/companion-poplet-poll-on-click.md`
-    /// in DockPops Main (2026-05-20):
-    ///   • Main guarantees an atomic PNG at the canonical path on every
-    ///     Pop content change.
-    ///   • Companion's Poplet reads directly via absolute path. NO App
-    ///     Group entitlement, NO security-scoped bookmark, NO Companion
-    ///     dependency. Just POSIX file read.
+    /// in DockPops Main (2026-05-20, revision 2):
+    ///   • Main writes THREE files atomically per scheduleExport cycle:
+    ///     `<uuid>.png` (1024²) for Companion's icns generation,
+    ///     `<uuid>.live.png` (256²) for Poplets, and the canonical
+    ///     `<uuid>.fingerprint`.
+    ///   • Companion's Poplet reads `.live.png` directly via absolute
+    ///     path. NO App Group entitlement, NO security-scoped bookmark,
+    ///     NO Companion dependency. Just POSIX file read.
+    ///   • Why .live.png and not .png: `NSApp.applicationIconImage`
+    ///     retains the source-resolution bitmap for the Poplet's
+    ///     lifetime. 20 Poplets × 4 MB (1024² RGBA) = ~80 MB resident.
+    ///     256² source = ~5 MB. The Dock tile is at most ~256 px on
+    ///     Retina at the largest Dock setting, so the larger file would
+    ///     be wasted bytes for zero visual gain.
+    ///   • Same bytes as the DNC broadcast: Main computes the 256² PNG
+    ///     once per cycle and uses identical bytes for both `.live.png`
+    ///     and the `iconUpdated` userInfo. No divergence possible.
     ///
     /// SACRED relaxation (2026-05-20):
     /// `DockPopsPopletMain.applicationDidFinishLaunching`'s SACRED block
@@ -131,9 +143,9 @@ final class PopletLiveIconController {
     /// (which the Poplet does — no sandbox, no entitlements) can read
     /// the contents when the path is known. Verified empirically.
     func refreshFromSharedContainer() {
-        let pngURL = Self.sharedPopIconDirectory
-            .appending(path: "\(popID.uuidString).png")
-        guard let data = try? Data(contentsOf: pngURL) else { return }
+        let liveURL = Self.sharedPopIconDirectory
+            .appending(path: "\(popID.uuidString).live.png")
+        guard let data = try? Data(contentsOf: liveURL) else { return }
         applyIconFromIPC(data)
     }
 
