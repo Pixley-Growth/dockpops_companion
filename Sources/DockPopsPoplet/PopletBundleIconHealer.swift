@@ -72,7 +72,27 @@ struct PopletBundleIconHealer: Sendable {
         try await clearFinderCustomIconIfPresent()
         try regenerateICNS(from: sourcePNG, to: targetICNS)
         try signBundle(at: bundleURL)
-        await applyFinderCustomIconIfPossible(from: sourcePNG)
+        // INTENTIONALLY REMOVED (2026-05-20): `applyFinderCustomIconIfPossible`.
+        //
+        // That call used `NSWorkspace.setIcon(image, forFile: bundleURL.path)`
+        // which writes a `Contents/Icon\r` resource-fork file AND sets the
+        // `kHasCustomIcon` bit in `com.apple.FinderInfo` xattr. Both happen
+        // AFTER `signBundle`, so both invalidate the signature just applied.
+        // macOS Dock then briefly shows the generic-folder fallback while
+        // LaunchServices re-validates, producing the "cycle through a
+        // generic folder icon before updating" symptom Eto reported.
+        //
+        // The icns we just wrote to `Contents/Resources/AppIcon.icns` plus
+        // the bundle's `CFBundleIconFile = AppIcon` Info.plist key are
+        // sufficient — macOS Dock + Finder use those natively, no Finder
+        // custom-icon machinery required. `lsregister -f` below nudges
+        // LaunchServices to pick up the fresh icns.
+        //
+        // See cal/analyses/dynamic-icon-signing.md for the original
+        // analysis ("setIcon mutates the bundle AFTER creation, which
+        // conflicts with codesigning"). The recipe was right but
+        // `applyFinderCustomIconIfPossible` kept getting re-introduced;
+        // gone now.
         registerWithLaunchServices(bundleURL: bundleURL)
 
         Self.logger.info(
