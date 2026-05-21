@@ -104,13 +104,39 @@ final class PopletLiveIconController {
         installIconUpdateObserver()
     }
 
-    /// Poll-on-click: read the 256×256 composite PNG straight from the
-    /// shared container's `PopIcons/<uuid>.live.png` sidecar (Main writes
-    /// it atomically there alongside the 1024² `<uuid>.png` for
-    /// Companion's icns) and apply it to `NSApp.applicationIconImage`.
-    /// Call from `applicationDidFinishLaunching` (initial paint) and from
+    /// ════════════════════════════════════════════════════════════════
+    /// SACRED ZONE #27 — Poll-on-click composite refresh
+    /// ════════════════════════════════════════════════════════════════
+    ///
+    /// Reads the 256×256 composite PNG straight from the shared
+    /// container's `PopIcons/<uuid>.live.png` sidecar (Main writes it
+    /// atomically there alongside the 1024² `<uuid>.png` for Companion's
+    /// icns) and applies it to `NSApp.applicationIconImage`. Call from
+    /// `applicationDidFinishLaunching` (initial paint) and from
     /// `applicationShouldHandleReopen` (catches Pop edits made while the
     /// Poplet wasn't running OR while Companion wasn't running).
+    ///
+    /// Why this method exists: the DNC `iconUpdated` IPC alone is not
+    /// sufficient — `DistributedNotificationCenter` does not queue, so
+    /// events posted while the Poplet is quit are silently dropped.
+    /// Disk poll-on-click is the only reliable "Poplet picks up Pop edits
+    /// made while everything was off" pathway.
+    ///
+    /// DO NOT change the file extension. Main writes `.live.png` (256²)
+    /// specifically for Poplet consumption; the 1024² `.png` would burn
+    /// ~75 MB resident across 20 Poplets for no visual gain because
+    /// `NSApp.applicationIconImage` retains the source-resolution bitmap
+    /// for the process lifetime. See
+    /// /Users/etoduarte/0. Coding/Swift/3. DockPops/docs/handoffs/
+    /// companion-poplet-poll-on-click.md § "Memory profile" for the
+    /// arithmetic.
+    ///
+    /// DO NOT remove the call sites in DockPopsPopletMain
+    /// `applicationDidFinishLaunching` and `applicationShouldHandleReopen`
+    /// (via `PopletLiveIconController.start()` and the reopen hook).
+    /// Removing either re-introduces the "icons don't update unless
+    /// Companion is running" regression.
+    /// ════════════════════════════════════════════════════════════════
     ///
     /// Per cross-repo handoff `docs/handoffs/companion-poplet-poll-on-click.md`
     /// in DockPops Main (2026-05-20, revision 2):
