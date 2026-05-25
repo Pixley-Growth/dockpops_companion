@@ -117,7 +117,11 @@ final class SharedContainerWatcher {
     private func scheduleDebouncedRefresh() {
         debounceTask?.cancel()
         debounceTask = Task { [onChange] in
-            try? await Task.sleep(for: .milliseconds(250))
+            // 1s, not 250ms: any sub-second debounce produced a visibly
+            // flickering "Refreshing…" toolbar label whenever the shared
+            // container had upstream noise. 1s coalesces bursts and still
+            // surfaces new Pops nearly instantly from the user's POV.
+            try? await Task.sleep(for: .milliseconds(1000))
             guard !Task.isCancelled else { return }
             onChange()
         }
@@ -184,9 +188,14 @@ private final class DirectoryWatcher {
         }
 
         self.url = url
+        // No `.attrib`: it fires on xattr / permission / FinderInfo changes,
+        // which macOS itself (Spotlight, LaunchServices, container journaling)
+        // ticks at multiple Hz while the user is idle. Real Pop / icon
+        // changes from DockPops still fire as `.write` / `.extend` /
+        // `.rename` / `.delete`.
         source = DispatchSource.makeFileSystemObjectSource(
             fileDescriptor: fd,
-            eventMask: [.write, .extend, .attrib, .link, .rename, .delete],
+            eventMask: [.write, .extend, .link, .rename, .delete],
             queue: .main
         )
         source.setEventHandler(handler: onEvent)
