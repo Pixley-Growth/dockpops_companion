@@ -207,6 +207,22 @@ final class PopletSyncService: @unchecked Sendable {
 
         stats.removed += try removeOrphanedPoplets(previousRegistry: previousRegistry, desiredRegistry: nextRegistry)
         try writeRegistry(nextRegistry, to: AppPaths.popletRegistryURL)
+        // MAS DockPops bridge (spec b' from main repo, 2026-05-25): mirror the
+        // registry to the shared App Group container so MAS can offer the same
+        // drag-to-Dock UX Complete users have. The mirror is best-effort — a
+        // nil container URL or write failure does not abort the sync, it just
+        // leaves MAS without the bridge data this cycle (next successful sync
+        // rewrites). Requires the com.apple.security.application-groups
+        // entitlement = ["group.com.dockpops.shared"] on this target.
+        if let groupURL = FileManager.default.containerURL(
+               forSecurityApplicationGroupIdentifier: "group.com.dockpops.shared") {
+            let mirrorURL = groupURL.appending(path: "poplet-registry.json")
+            do {
+                try writeRegistry(nextRegistry, to: mirrorURL)
+            } catch {
+                Self.logger.warning("MAS bridge mirror write failed: \(error.localizedDescription, privacy: .public)")
+            }
+        }
 
         let sortedPoplets = poplets.sorted {
             $0.popName.localizedCaseInsensitiveCompare($1.popName) == .orderedAscending
