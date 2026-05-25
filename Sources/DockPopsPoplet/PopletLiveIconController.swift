@@ -325,9 +325,14 @@ final class PopletLiveIconController {
             return
         }
 
+        // No `.attrib`: matches the same exclusion in SharedContainerWatcher.
+        // `.attrib` fires on xattr / permission / FinderInfo changes that
+        // macOS background work (Spotlight, LaunchServices, container
+        // journaling) ticks at multiple Hz while idle. Real live-icon PNG
+        // updates still fire as `.write` / `.extend` / `.rename` / `.delete`.
         let source = DispatchSource.makeFileSystemObjectSource(
             fileDescriptor: fd,
-            eventMask: [.write, .extend, .rename, .delete, .attrib],
+            eventMask: [.write, .extend, .rename, .delete],
             queue: .main
         )
         source.setEventHandler { [weak self] in
