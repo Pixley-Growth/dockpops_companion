@@ -493,7 +493,16 @@ final class PopletSyncService: @unchecked Sendable {
     }
 
     private func writeRegistry(_ registry: [String: String], to url: URL) throws {
-        let data = try JSONEncoder().encode(registry)
+        let encoder = JSONEncoder()
+        encoder.outputFormatting = [.sortedKeys]
+        let data = try encoder.encode(registry)
+        if
+            fileManager.fileExists(atPath: url.path),
+            let existingData = try? Data(contentsOf: url),
+            existingData == data
+        {
+            return
+        }
         try data.write(to: url, options: .atomic)
     }
 
