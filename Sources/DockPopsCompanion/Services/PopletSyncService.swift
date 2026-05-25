@@ -524,6 +524,9 @@ final class PopletSyncService: @unchecked Sendable {
     }
 
     private func writeRegistry(_ registry: [String: String], to url: URL) throws {
+        // Idempotent: sorted JSON + content-compare keep the bytes stable
+        // across syncs so writes into the App Group container don't re-trigger
+        // SharedContainerWatcher and loop the sync.
         let encoder = JSONEncoder()
         encoder.outputFormatting = [.sortedKeys]
         let data = try encoder.encode(registry)
