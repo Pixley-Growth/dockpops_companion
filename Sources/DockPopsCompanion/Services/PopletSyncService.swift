@@ -351,6 +351,21 @@ final class PopletSyncService: @unchecked Sendable {
         }
 
         let resolvedIcon = resolvedPopletIcon(for: pop.id, paths: paths)
+
+        // Skip the rebuild when the bundle on disk is already the desired
+        // recipe + icon. Defense-in-depth: the user-visible "Refreshing…"
+        // loop that originally surfaced this code path was driven by a
+        // non-idempotent writeRegistry (now fixed). This guard remains
+        // because an unconditional rebuild per sync still wastes work —
+        // replaceItemAt's the bundle (new inode), reruns codesign, and
+        // rewrites the Finder custom icon. CFBundleVersion already encodes
+        // popletIconRecipeVersion + stableIconFingerprint (see
+        // bundleVersionForDockPopsIcon / bundleVersionForPopComposite), so
+        // a string match is a complete identity check.
+        if existingBundleMatches(at: bundleURL, expectedVersion: resolvedIcon.bundleVersion) {
+            return resolvedIcon.source
+        }
+
         // SACRED CODE:
         // Bake the .icns / Assets.car from the NORMALIZED (inset) image —
         // never `resolvedIcon.image`, which is full-bleed PopIcons art.
@@ -866,6 +881,29 @@ final class PopletSyncService: @unchecked Sendable {
             hash = hash &* 16_777_619
         }
         return max(1, hash & 0x7fff_ffff)
+    }
+
+    private func existingBundleMatches(at bundleURL: URL, expectedVersion: String) -> Bool {
+        let contentsURL = bundleURL.appending(path: "Contents", directoryHint: .isDirectory)
+        let infoPlistURL = contentsURL.appending(path: "Info.plist")
+        let executableURL = contentsURL
+            .appending(path: "MacOS", directoryHint: .isDirectory)
+            .appending(path: popletExecutableName)
+
+        guard fileManager.fileExists(atPath: executableURL.path) else { return false }
+        guard let data = try? Data(contentsOf: infoPlistURL) else { return false }
+        guard
+            let plist = try? PropertyListSerialization.propertyList(
+                from: data, options: [], format: nil
+            ) as? [String: Any]
+        else { return false }
+        guard let currentVersion = plist["CFBundleVersion"] as? String,
+              currentVersion == expectedVersion
+        else { return false }
+        guard let currentRecipeVersion = plist[Self.popletIconRecipeVersionInfoKey] as? Int,
+              currentRecipeVersion == Self.popletIconRecipeVersion
+        else { return false }
+        return true
     }
 
     private func installGeneratedPopletBundle(at stagingURL: URL, destinationURL: URL) throws {
