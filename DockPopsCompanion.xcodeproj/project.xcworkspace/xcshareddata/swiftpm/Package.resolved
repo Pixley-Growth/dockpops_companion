@@ -1,13 +1,22 @@
 {
-  "originHash" : "e721da7f9826abdffcb6185e886155efa2514bd6234475f1afa893e29eb258d6",
+  "originHash" : "e19ae9a76d0b88066be036149088f27bf62cf2f4d58c5a85d635721b728ecddd",
   "pins" : [
+    {
+      "identity" : "popletkit",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/Pixley-Growth/PopletKit.git",
+      "state" : {
+        "revision" : "4b815feb0ee5a85f53bf13e4c5db17749be218f5",
+        "version" : "0.1.0"
+      }
+    },
     {
       "identity" : "sparkle",
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/sparkle-project/Sparkle",
       "state" : {
-        "revision" : "066e75a8b3e99962685d6a90cdd5293ebffd9261",
-        "version" : "2.9.1"
+        "revision" : "6276ba2b404829d139c45ff98427cf90e2efc59b",
+        "version" : "2.9.2"
       }
     }
   ],

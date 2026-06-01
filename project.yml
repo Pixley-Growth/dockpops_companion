@@ -13,6 +13,9 @@ packages:
   Sparkle:
     url: https://github.com/sparkle-project/Sparkle
     from: 2.9.1
+  PopletKit:
+    url: https://github.com/Pixley-Growth/PopletKit.git
+    from: 0.1.0
 
 settings:
   base:
@@ -84,6 +87,8 @@ targets:
         embed: false
       - package: Sparkle
         product: Sparkle
+      - package: PopletKit
+        product: PopletKit
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.dockpops.companion

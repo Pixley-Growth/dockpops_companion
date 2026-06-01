@@ -21,6 +21,7 @@
 		522B475BD4A8345FCD563F66 /* PopletIconView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9E5D91F351285A8A82DDE96F /* PopletIconView.swift */; };
 		59A183E4D54C6C74F23E0CF9 /* PopletRegistry.swift in Sources */ = {isa = PBXBuildFile; fileRef = 122EBD0E6D0E82240497AE79 /* PopletRegistry.swift */; };
 		6908134615AD796F0841A477 /* PopletStatus.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9FB099EAF70E6CE380F609A2 /* PopletStatus.swift */; };
+		6D5DB140AECABBFB5156C7F7 /* PopletKit in Frameworks */ = {isa = PBXBuildFile; productRef = DEC5DB86CBBADAE7451DA576 /* PopletKit */; };
 		72821E7AF82CDB87B6E0C5A1 /* PopletDockPopsIconPreferences.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5E5505589B9D2986C60416C0 /* PopletDockPopsIconPreferences.swift */; };
 		75E490F62A19AEBFB6AC8490 /* CompanionModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 24E4C8F5283BA21C31D56F7A /* CompanionModel.swift */; };
 		7D83C2E78C7761D79F983827 /* SharedContainerAccess.swift in Sources */ = {isa = PBXBuildFile; fileRef = 875664A21CB29411288F8493 /* SharedContainerAccess.swift */; };
@@ -98,6 +99,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				E1D5204DE49BF4E910CA8FA2 /* Sparkle in Frameworks */,
+				6D5DB140AECABBFB5156C7F7 /* PopletKit in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -245,6 +247,7 @@
 			name = DockPopsCompanion;
 			packageProductDependencies = (
 				7541306F6443D5BDE5F85796 /* Sparkle */,
+				DEC5DB86CBBADAE7451DA576 /* PopletKit */,
 			);
 			productName = DockPopsCompanion;
 			productReference = 15F6DDAD9BE2A2B5964AA37C /* DockPopsCompanion.app */;
@@ -315,6 +318,7 @@
 			mainGroup = 33F0B1972284514B90DA6578;
 			minimizedProjectReferenceProxies = 1;
 			packageReferences = (
+				B190B28BFC86FCDDFC696AAF /* XCRemoteSwiftPackageReference "PopletKit" */,
 				7E628B0C15B092BA0DB4FC1D /* XCRemoteSwiftPackageReference "Sparkle" */,
 			);
 			preferredProjectObjectVersion = 77;
@@ -728,6 +732,14 @@
 				minimumVersion = 2.9.1;
 			};
 		};
+		B190B28BFC86FCDDFC696AAF /* XCRemoteSwiftPackageReference "PopletKit" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/Pixley-Growth/PopletKit.git";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 0.1.0;
+			};
+		};
 /* End XCRemoteSwiftPackageReference section */
 
 /* Begin XCSwiftPackageProductDependency section */
@@ -735,6 +747,11 @@
 			isa = XCSwiftPackageProductDependency;
 			package = 7E628B0C15B092BA0DB4FC1D /* XCRemoteSwiftPackageReference "Sparkle" */;
 			productName = Sparkle;
+		};
+		DEC5DB86CBBADAE7451DA576 /* PopletKit */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = B190B28BFC86FCDDFC696AAF /* XCRemoteSwiftPackageReference "PopletKit" */;
+			productName = PopletKit;
 		};
 /* End XCSwiftPackageProductDependency section */
 	};
