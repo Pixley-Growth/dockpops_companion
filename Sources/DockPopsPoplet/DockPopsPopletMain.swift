@@ -52,7 +52,7 @@ enum DockPopsPopletMain {
         // click (a cold launch bounces; a resident reopen does not).
         // `.accessory` + resident is the only combination with neither.
         // Keep this in lockstep with `LSUIElement` in the generated Info.plist
-        // (PopletSyncService.writePopletBundle).
+        // (PopletKit's PopletBundleWriter).
         app.setActivationPolicy(.accessory)
         app.delegate = delegate
         app.run()

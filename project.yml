@@ -56,23 +56,9 @@ targets:
         GENERATE_INFOPLIST_FILE: YES
         SKIP_INSTALL: YES
 
-  DockPopsCompanionTests:
-    type: bundle.unit-test
-    platform: macOS
-    deploymentTarget: "14.0"
-    sources:
-      # Pure logic compiled directly into the test bundle so it runs as a
-      # hostless logic test — no app host (which would pull in Sparkle + the
-      # full SwiftUI scene) and no @testable import of an executable target.
-      - path: Tests/DockPopsCompanionTests
-      - path: Sources/DockPopsCompanion/Support/PopletRegistry.swift
-      - path: Sources/DockPopsCompanion/Support/PopletRenameCore.swift
-      - path: Sources/DockPopsCompanion/Support/DirectoryInPlaceSync.swift
-    settings:
-      base:
-        PRODUCT_BUNDLE_IDENTIFIER: com.dockpops.companion.tests
-        GENERATE_INFOPLIST_FILE: YES
-        CODE_SIGNING_ALLOWED: NO
+  # NOTE: the former DockPopsCompanionTests target only held the poplet
+  # lifecycle logic tests, which now live in the PopletKit package. Removed
+  # here; re-add a test target when the Companion has its own tests to run.
 
   DockPopsCompanion:
     type: application
@@ -132,11 +118,6 @@ schemes:
       targets:
         DockPopsCompanion: all
         DockPopsPoplet: all
-        DockPopsCompanionTests: [test]
-    test:
-      config: Debug
-      targets:
-        - DockPopsCompanionTests
     run:
       config: Debug
     archive:
