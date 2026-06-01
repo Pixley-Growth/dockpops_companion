@@ -25,6 +25,15 @@ final class CompanionModel {
     var lastSync: Date?
     var hasResolvedInitialLaunchState = false
 
+    /// Recovery notice (Fix B failure safety): set when a Pop's bundle rename
+    /// failed this sync and was rolled back to its previous (still-pinned)
+    /// filename — the pin keeps working but the Dock-tile label is stale, so the
+    /// user is told to re-pin. Driven by each sync's `renameFailed`: it clears
+    /// automatically once a later sync renames cleanly. Dismiss hides it until
+    /// the next failing sync (no persisted flag — a recurring failure must
+    /// re-surface).
+    var showsRenameFailureNotice = false
+
     private let syncService = PopletSyncService()
     @ObservationIgnored
     private lazy var sharedContainerWatcher = SharedContainerWatcher { [weak self] in
@@ -134,6 +143,10 @@ final class CompanionModel {
 
     // MARK: - Actions
 
+    func dismissRenameFailureNotice() {
+        showsRenameFailureNotice = false
+    }
+
     func continueToSharedAccessPrompt() async {
         // Re-entry guard. The first sync after a grant can take many seconds
         // (it generates a bundle for every Pop), and the permission screen
@@ -193,6 +206,7 @@ final class CompanionModel {
         metadataAvailable = snapshot.metadataAvailable
         dockPopsFound = snapshot.dockPopsFound
         errorDescription = snapshot.errorDescription
+        showsRenameFailureNotice = snapshot.renameFailed
         lastSync = Date()
 
         if snapshot.hasStoredSharedContainerBookmark {

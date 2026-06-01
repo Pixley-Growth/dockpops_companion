@@ -21,7 +21,19 @@ final class PopletSyncService: @unchecked Sendable {
     /// 14: poplet healer no longer aborts after stripping Finder custom icons
     ///     when actool fails to produce Assets.car; it falls back to ICNS-only
     ///     and reapplies the Finder custom icon.
-    private static let popletIconRecipeVersion = 14
+    /// 15: in-place install + no-move-on-rename make it safe to force-
+    ///     regenerate existing Poplets in place (same `.app` inode, so the Dock
+    ///     pin survives). Bumping rebakes old "ugly Tahoe white-border" icons on
+    ///     the next sync without breaking any pinned tile.
+    /// 16: TCC fix + bundle-id unification. The bump forces a one-time in-place
+    ///     regen of every existing Poplet so they (a) embed the new poplet
+    ///     binary that reads icons from the non-gated `~/Applications/DockPops/
+    ///     Icons/` folder instead of the App Group container (stops the "data
+    ///     from other apps" prompt), and (b) re-stamp + re-sign under the
+    ///     unified `com.dockpops.poplet.<uuid>` id (matches DockPops Complete).
+    ///     In-place install preserves the `.app` inode, so Dock pins survive the
+    ///     identity change.
+    private static let popletIconRecipeVersion = 16
     private static let popletIconRecipeVersionInfoKey = "DockPopsIconRecipeVersion"
     private static let launchServicesRegisterPath =
         "/System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/LaunchServices.framework/Support/lsregister"
@@ -29,6 +41,14 @@ final class PopletSyncService: @unchecked Sendable {
     private let fileManager = FileManager.default
     private let popStore = SharedPopStore()
     private let popletExecutableName = "DockPopsPoplet"
+
+    /// Clears the resident Poplet's "item is open" lock before an in-place
+    /// inode-preserving rename (Fix B). Injected so the rename path is testable.
+    private let terminator: PopletTerminating
+
+    init(terminator: PopletTerminating = RunningApplicationPopletTerminator()) {
+        self.terminator = terminator
+    }
 
     func hasStoredSharedContainerBookmark() -> Bool {
         SharedContainerAccess.hasStoredBookmark()
@@ -87,11 +107,24 @@ final class PopletSyncService: @unchecked Sendable {
             try ensureDirectory(AppPaths.popletsDirectoryURL)
             try ensureDirectory(AppPaths.companionSupportDirectoryURL)
             try ensureDirectory(AppPaths.popletLiveIconsDirectoryURL)
+            try ensureDirectory(AppPaths.iconsDirectoryURL)
             return try SharedContainerAccess.withAccess { containerURL in
                 let paths = SharedContainerPaths(containerURL: containerURL)
                 try ensureSharedContainerAccess(at: paths.containerURL)
+                // Companion-internal mirror (Application Support) — the running
+                // Poplet's file-watcher source (non-gated, defense-in-depth).
                 try PopletLiveIconMirror.sync(
                     sourceDirectoryURL: paths.sharedPopIconsDirectoryURL,
+                    fileManager: fileManager
+                )
+                // TCC fix: the load-bearing non-gated read surface. The ad-hoc
+                // Poplet reads `~/Applications/DockPops/Icons/<uuid>.png` +
+                // `<uuid>.live.png` from here (never the App Group container, a
+                // read of which prompts on every click). Verbatim byte-copies →
+                // byte-identity holds; orphan sweep removes deleted Pops' icons.
+                try PopletLiveIconMirror.sync(
+                    sourceDirectoryURL: paths.sharedPopIconsDirectoryURL,
+                    destinationDirectoryURL: AppPaths.iconsDirectoryURL,
                     fileManager: fileManager
                 )
 
@@ -120,7 +153,8 @@ final class PopletSyncService: @unchecked Sendable {
                     hasStoredSharedContainerBookmark: true,
                     metadataAvailable: true,
                     dockPopsFound: dockPopsFound,
-                    errorDescription: nil
+                    errorDescription: nil,
+                    renameFailed: result.renameFailed
                 )
             }
         } catch let error as SharedContainerAccessError {
@@ -153,48 +187,116 @@ final class PopletSyncService: @unchecked Sendable {
         }
     }
 
-    private func syncPoplets(for pops: [PopRecord], paths: SharedContainerPaths) throws -> (stats: SyncStats, poplets: [PopletStatus]) {
+    private func syncPoplets(for pops: [PopRecord], paths: SharedContainerPaths) throws -> (stats: SyncStats, poplets: [PopletStatus], renameFailed: Bool) {
         let previousRegistry = try loadRegistry(from: AppPaths.popletRegistryURL)
-        let previousNameByID: [UUID: String] = Dictionary(
-            uniqueKeysWithValues: previousRegistry.compactMap { entry in
-                guard let uuid = UUID(uuidString: entry.value) else { return nil }
-                return (uuid, entry.key)
-            }
+
+        // Collision-free display names in stable Pop order: the FIRST Pop named
+        // "Work" keeps the bare `Work.app` (what the unchanged MAS reader looks
+        // for); a second same-named Pop gets `Work 2.app`. Drives BOTH the
+        // on-disk filename (the Dock label) AND CFBundleDisplayName/CFBundleName.
+        let desiredNames = PopletRegistry.resolvedDisplayNames(
+            for: pops.map { (id: $0.id, name: $0.name) },
+            sanitize: sanitizedPopletName
         )
 
-        let desiredNames = resolvedNames(for: pops)
-        var nextRegistry: [String: String] = [:]
+        // ── Swap/cycle-safe rename batch (Fix B) ─────────────────────────────
+        // The Dock labels a pinned tile from the `.app` FILENAME, so a Pop
+        // rename must move the bundle to `<newName>.app` inode-preservingly (the
+        // pin's bookmark follows). We reconcile ALL Pops in one launch pass, so
+        // a name *swap* (A→"Home", B→"Work") would deadlock a naïve per-bundle
+        // loop; `planRenames` orders the batch (cycles broken via a temp hop)
+        // and `executeRenamePlan` terminates each resident Poplet then renames,
+        // classifying any occupant by its embedded DockPopsTargetPopID. (Copied
+        // verbatim from DockPops Complete — PopletRenameCore.)
+        var renameRequests: [PopletRenameCore.PopletRenamePlan] = []
+        var originalFrom: [UUID: String] = [:]
+        for pop in pops {
+            guard let name = desiredNames[pop.id] else { continue }
+            let desiredFilename = "\(name).app"
+            if case .rename(let from) = PopletRenameCore.renameAction(
+                existingFilename: previousRegistry[pop.id.uuidString]?.filename,
+                desiredFilename: desiredFilename
+            ) {
+                renameRequests.append(.init(popID: pop.id, from: from, to: desiredFilename))
+                originalFrom[pop.id] = from
+            }
+        }
+        let renameOutcomes = PopletRenameCore.executeRenamePlan(
+            PopletRenameCore.planRenames(renameRequests),
+            originalFrom: originalFrom,
+            directory: AppPaths.popletsDirectoryURL,
+            terminator: terminator,
+            fileManager: fileManager
+        )
+
+        var nextRegistry: PopletRegistry.Map = [:]
         var poplets: [PopletStatus] = []
         var stats = SyncStats.zero
+        var renameFailed = false
 
         for pop in pops {
-            guard let desiredName = desiredNames[pop.id] else { continue }
-            let popletURL = popletBundleURL(named: desiredName)
-            let oldName = previousNameByID[pop.id]
-            let hadExistingBundle = oldName.map { fileManager.fileExists(atPath: popletBundleURL(named: $0).path) } ?? fileManager.fileExists(atPath: popletURL.path)
+            guard let displayName = desiredNames[pop.id] else { continue }
+            let desiredFilename = "\(displayName).app"
+            let previousEntry = previousRegistry[pop.id.uuidString]
 
-            if let oldName, oldName != desiredName {
-                let didMove = try movePopletIfNeeded(from: oldName, to: desiredName)
-                if didMove {
-                    stats.renamed += 1
+            // Resolve the filename this Pop's bundle actually ends at, consuming
+            // the rename batch outcome. A brand-new Pop / vanished source picks
+            // an occupant-safe name via freshWriteFilename so it never clobbers
+            // a foreign `.app`. On a real failure we keep the rolled-back
+            // (still-pinned) name and flag the recovery banner.
+            let filename: String
+            switch PopletRenameCore.renameAction(
+                existingFilename: previousEntry?.filename,
+                desiredFilename: desiredFilename
+            ) {
+            case .keep:
+                filename = desiredFilename
+            case .create:
+                filename = PopletRenameCore.freshWriteFilename(
+                    desired: desiredFilename, popID: pop.id,
+                    directory: AppPaths.popletsDirectoryURL, fileManager: fileManager
+                )
+            case .rename:
+                switch renameOutcomes[pop.id] {
+                case .renamed(let name): filename = name
+                case .deferred(let name): filename = name
+                case .failed(let name): filename = name; renameFailed = true
+                case .recreate, .none:
+                    filename = PopletRenameCore.freshWriteFilename(
+                        desired: desiredFilename, popID: pop.id,
+                        directory: AppPaths.popletsDirectoryURL, fileManager: fileManager
+                    )
                 }
             }
 
+            let popletURL = popletBundleURL(filename: filename)
+            // Regen-clobber guard: existence is keyed on the bundle now on disk
+            // at the resolved (post-rename) filename, which the registry below
+            // is set to — so a renamed bundle never reads as "missing".
+            let hadExistingBundle = previousEntry != nil && fileManager.fileExists(atPath: popletURL.path)
+
+            // The on-disk rename (if any) already moved the directory; this
+            // writes/relabels the bundle (CFBundleDisplayName/CFBundleName) in
+            // place when the icon/version/name changed.
             let iconSource = try writePopletBundle(
                 for: pop,
-                popletName: desiredName,
+                filename: filename,
+                displayName: displayName,
                 paths: paths
             )
 
-            if oldName == desiredName || oldName == nil {
-                if hadExistingBundle {
-                    stats.updated += 1
-                } else {
-                    stats.created += 1
-                }
+            if !hadExistingBundle {
+                stats.created += 1
+            } else if previousEntry?.displayName != displayName {
+                stats.renamed += 1
+            } else {
+                stats.updated += 1
             }
 
-            nextRegistry[desiredName] = pop.id.uuidString
+            nextRegistry[pop.id.uuidString] = PopletRegistryEntry(
+                filename: filename,
+                displayName: displayName
+            )
             poplets.append(
                 PopletStatus(
                     popID: pop.id,
@@ -205,15 +307,19 @@ final class PopletSyncService: @unchecked Sendable {
             )
         }
 
-        stats.removed += try removeOrphanedPoplets(previousRegistry: previousRegistry, desiredRegistry: nextRegistry)
+        stats.removed += try removeOrphanedPoplets(currentPopIDs: Set(pops.map(\.id)))
         try writeRegistry(nextRegistry, to: AppPaths.popletRegistryURL)
-        // MAS DockPops bridge (spec b' from main repo, 2026-05-25): mirror the
-        // registry to the shared App Group container so MAS can offer the same
-        // drag-to-Dock UX Complete users have. The mirror is best-effort — a
-        // nil container URL or write failure does not abort the sync, it just
-        // leaves MAS without the bridge data this cycle (next successful sync
-        // rewrites). Requires the com.apple.security.application-groups
-        // entitlement = ["group.com.dockpops.shared"] on this target.
+        // MAS DockPops bridge: mirror the registry to the shared App Group
+        // container. The current MAS bridge (`CompanionPopletBridge`) only reads
+        // this file's SIZE > 0 as a "Companion has synced at least once" gate —
+        // it resolves Poplets by enumerating ~/Applications/DockPops directly,
+        // not by parsing this file. So we mirror in whatever shape the registry
+        // already uses (no MAS-specific structure); the future resolve-by-UUID
+        // MAS reader will read DockPopsTargetPopID from each bundle's Info.plist
+        // (the single source of truth), not this mirror. Best-effort — a nil
+        // container URL or write failure does not abort the sync. Requires the
+        // com.apple.security.application-groups = ["group.com.dockpops.shared"]
+        // entitlement on this target.
         if let groupURL = FileManager.default.containerURL(
                forSecurityApplicationGroupIdentifier: "group.com.dockpops.shared") {
             let mirrorURL = groupURL.appending(path: "poplet-registry.json")
@@ -227,18 +333,18 @@ final class PopletSyncService: @unchecked Sendable {
         let sortedPoplets = poplets.sorted {
             $0.popName.localizedCaseInsensitiveCompare($1.popName) == .orderedAscending
         }
-        return (stats, sortedPoplets)
+        return (stats, sortedPoplets, renameFailed)
     }
 
     private func loadExistingPoplets(paths: SharedContainerPaths) -> [PopletStatus] {
         let registry = (try? loadRegistry(from: AppPaths.popletRegistryURL)) ?? [:]
-        return registry.compactMap { name, uuidString in
+        return registry.compactMap { uuidString, entry in
             guard let uuid = UUID(uuidString: uuidString) else { return nil }
-            let popletURL = popletBundleURL(named: name)
+            let popletURL = popletBundleURL(filename: entry.filename)
             guard fileManager.fileExists(atPath: popletURL.path) else { return nil }
             return PopletStatus(
                 popID: uuid,
-                popName: name,
+                popName: entry.displayName,
                 popletURL: popletURL,
                 iconSource: inferredIconSource(for: uuid, paths: paths)
             )
@@ -248,27 +354,6 @@ final class PopletSyncService: @unchecked Sendable {
 
     private func ensureSharedContainerAccess(at url: URL) throws {
         _ = try url.resourceValues(forKeys: [.isDirectoryKey])
-    }
-
-    private func resolvedNames(for pops: [PopRecord]) -> [UUID: String] {
-        var names: [UUID: String] = [:]
-        var used = Set<String>()
-
-        for pop in pops {
-            let base = sanitizedPopletName(pop.name)
-            var candidate = base
-            var suffix = 2
-
-            while used.contains(candidate.lowercased()) {
-                candidate = "\(base) \(suffix)"
-                suffix += 1
-            }
-
-            names[pop.id] = candidate
-            used.insert(candidate.lowercased())
-        }
-
-        return names
     }
 
     private func sanitizedPopletName(_ rawName: String) -> String {
@@ -285,57 +370,20 @@ final class PopletSyncService: @unchecked Sendable {
         return compactWhitespace.trimmedOrNil ?? "Pop"
     }
 
-    private func popletBundleURL(named popletName: String) -> URL {
-        AppPaths.popletsDirectoryURL.appending(path: "\(popletName).app", directoryHint: .isDirectory)
-    }
-
-    private func movePopletIfNeeded(from oldName: String, to newName: String) throws -> Bool {
-        let oldURL = popletBundleURL(named: oldName)
-        let newURL = popletBundleURL(named: newName)
-
-        return try withBundleLocks(for: [oldURL, newURL]) {
-            guard oldURL != newURL, fileManager.fileExists(atPath: oldURL.path) else {
-                return false
-            }
-
-            if !fileManager.fileExists(atPath: newURL.path) {
-                try fileManager.moveItem(at: oldURL, to: newURL)
-                return true
-            }
-
-            let parkedOldURL = temporarySiblingURL(for: oldURL, label: "renaming")
-            let parkedNewURL = temporarySiblingURL(for: newURL, label: "occupied")
-            var parkedExistingDestination = false
-
-            try fileManager.moveItem(at: oldURL, to: parkedOldURL)
-            do {
-                if fileManager.fileExists(atPath: newURL.path) {
-                    try fileManager.moveItem(at: newURL, to: parkedNewURL)
-                    parkedExistingDestination = true
-                }
-                try fileManager.moveItem(at: parkedOldURL, to: newURL)
-                if parkedExistingDestination, fileManager.fileExists(atPath: parkedNewURL.path) {
-                    try fileManager.removeItem(at: parkedNewURL)
-                }
-                return true
-            } catch {
-                if fileManager.fileExists(atPath: parkedOldURL.path) {
-                    try? fileManager.moveItem(at: parkedOldURL, to: oldURL)
-                }
-                if parkedExistingDestination, fileManager.fileExists(atPath: parkedNewURL.path) {
-                    try? fileManager.moveItem(at: parkedNewURL, to: newURL)
-                }
-                throw error
-            }
-        }
+    /// Bundle URL for an explicit on-disk filename (already includes `.app`).
+    /// The filename is the name-tracking `<resolvedName>.app` (moved on rename
+    /// by `PopletRenameCore`).
+    private func popletBundleURL(filename: String) -> URL {
+        AppPaths.popletsDirectoryURL.appending(path: filename, directoryHint: .isDirectory)
     }
 
     private func writePopletBundle(
         for pop: PopRecord,
-        popletName: String,
+        filename: String,
+        displayName: String,
         paths: SharedContainerPaths
     ) throws -> PopletIconSource {
-        let bundleURL = popletBundleURL(named: popletName)
+        let bundleURL = popletBundleURL(filename: filename)
         let stagingBundleURL = temporarySiblingURL(for: bundleURL, label: "staging")
         let contentsURL = stagingBundleURL.appending(path: "Contents", directoryHint: .isDirectory)
         let macOSURL = contentsURL.appending(path: "MacOS", directoryHint: .isDirectory)
@@ -353,16 +401,21 @@ final class PopletSyncService: @unchecked Sendable {
         let resolvedIcon = resolvedPopletIcon(for: pop.id, paths: paths)
 
         // Skip the rebuild when the bundle on disk is already the desired
-        // recipe + icon. Defense-in-depth: the user-visible "Refreshing…"
-        // loop that originally surfaced this code path was driven by a
-        // non-idempotent writeRegistry (now fixed). This guard remains
-        // because an unconditional rebuild per sync still wastes work —
-        // replaceItemAt's the bundle (new inode), reruns codesign, and
-        // rewrites the Finder custom icon. CFBundleVersion already encodes
+        // recipe + icon + label. Defense-in-depth: the user-visible
+        // "Refreshing…" loop that originally surfaced this code path was driven
+        // by a non-idempotent writeRegistry (now fixed). This guard remains
+        // because an unconditional rebuild per sync still wastes work — reruns
+        // codesign and rewrites the Finder custom icon. CFBundleVersion encodes
         // popletIconRecipeVersion + stableIconFingerprint (see
-        // bundleVersionForDockPopsIcon / bundleVersionForPopComposite), so
-        // a string match is a complete identity check.
-        if existingBundleMatches(at: bundleURL, expectedVersion: resolvedIcon.bundleVersion) {
+        // bundleVersionForDockPopsIcon / bundleVersionForPopComposite); the
+        // displayName check catches a pure rename (same icon/version, new
+        // label) so CFBundleDisplayName/CFBundleName still get rewritten in
+        // place — otherwise a renamed Pop's tile would keep its old label.
+        if existingBundleMatches(
+            at: bundleURL,
+            expectedVersion: resolvedIcon.bundleVersion,
+            expectedDisplayName: displayName
+        ) {
             return resolvedIcon.source
         }
 
@@ -397,11 +450,20 @@ final class PopletSyncService: @unchecked Sendable {
 
             var plist: [String: Any] = [
                 "CFBundleDevelopmentRegion": "en",
-                "CFBundleDisplayName": popletName,
+                // Display label = the Pop's CURRENT (resolved) name. The Dock
+                // labels a PINNED tile from the `.app` filename (renamed on disk
+                // by PopletRenameCore); these keys drive Finder + the non-pinned
+                // label, so they track the live name and are rewritten in place.
+                "CFBundleDisplayName": displayName,
                 "CFBundleExecutable": popletExecutableName,
-                "CFBundleIdentifier": "com.dockpops.companion.poplet.\(pop.id.uuidString.lowercased())",
+                // Unified poplet bundle id (matches DockPops Complete + the
+                // shared-channel contract). Was `com.dockpops.companion.poplet.`;
+                // the recipe-16 bump re-stamps existing bundles in place. Keep
+                // in lockstep with PopletRenameCore.popletBundleIDPrefix (the
+                // terminate-on-rename lookup) and the Poplet's own runtime.
+                "CFBundleIdentifier": "com.dockpops.poplet.\(pop.id.uuidString.lowercased())",
                 "CFBundleInfoDictionaryVersion": "6.0",
-                "CFBundleName": popletName,
+                "CFBundleName": displayName,
                 "CFBundlePackageType": "APPL",
                 "CFBundleShortVersionString": currentCompanionShortVersionString(),
                 "CFBundleSupportedPlatforms": ["MacOSX"],
@@ -440,8 +502,17 @@ final class PopletSyncService: @unchecked Sendable {
                 )
             }
 
-            try signGeneratedPopletBundle(at: stagingBundleURL)
+            // Install BEFORE signing so we sign the final destination bundle in
+            // place (§3.2). When the destination already exists, the install
+            // syncs the staged Contents/ into the existing `.app` directory
+            // without swapping the top-level directory — preserving its inode so
+            // the Dock pin survives. Strip any stale Finder custom-icon metadata
+            // (resource fork / FinderInfo) the previous bake left on the
+            // destination before signing, because codesign rejects it; the icon
+            // is reapplied after signing below.
             try installGeneratedPopletBundle(at: stagingBundleURL, destinationURL: bundleURL)
+            try removeLegacyCustomIconArtifacts(from: bundleURL)
+            try signGeneratedPopletBundle(at: bundleURL)
             applyFinderCustomIconIfPossible(resolvedIcon.image, to: bundleURL)
             refreshWorkspaceViews(for: bundleURL)
             return resolvedIcon.source
@@ -515,21 +586,20 @@ final class PopletSyncService: @unchecked Sendable {
         NSWorkspace.shared.urlForApplication(withBundleIdentifier: AppPaths.dockPopsBundleIdentifier)
     }
 
-    private func loadRegistry(from url: URL) throws -> [String: String] {
+    private func loadRegistry(from url: URL) throws -> PopletRegistry.Map {
         guard fileManager.fileExists(atPath: url.path) else {
             return [:]
         }
         let data = try Data(contentsOf: url)
-        return try JSONDecoder().decode([String: String].self, from: data)
+        return try PopletRegistry.decode(data)
     }
 
-    private func writeRegistry(_ registry: [String: String], to url: URL) throws {
-        // Idempotent: sorted JSON + content-compare keep the bytes stable
-        // across syncs so writes into the App Group container don't re-trigger
-        // SharedContainerWatcher and loop the sync.
-        let encoder = JSONEncoder()
-        encoder.outputFormatting = [.sortedKeys]
-        let data = try encoder.encode(registry)
+    private func writeRegistry(_ registry: PopletRegistry.Map, to url: URL) throws {
+        // Idempotent: PopletRegistry.encode emits sorted JSON, and the
+        // content-compare keeps the bytes stable across syncs so writes into
+        // the App Group container don't re-trigger SharedContainerWatcher and
+        // loop the sync.
+        let data = try PopletRegistry.encode(registry)
         if
             fileManager.fileExists(atPath: url.path),
             let existingData = try? Data(contentsOf: url),
@@ -540,12 +610,33 @@ final class PopletSyncService: @unchecked Sendable {
         try data.write(to: url, options: .atomic)
     }
 
-    private func removeOrphanedPoplets(previousRegistry: [String: String], desiredRegistry: [String: String]) throws -> Int {
-        var removed = 0
+    /// Orphan sweep keyed on each bundle's embedded `DockPopsTargetPopID`
+    /// (§3.7) rather than a registry name-diff, which proved unreliable. A
+    /// directory sweep also reclaims historical orphans left by the old code.
+    /// Dual-scheme-safe: keyed on the embedded UUID, never the filename (which
+    /// now tracks the Pop name and moves on rename).
+    private func removeOrphanedPoplets(currentPopIDs: Set<UUID>) throws -> Int {
+        let directoryURL = AppPaths.popletsDirectoryURL
+        guard fileManager.fileExists(atPath: directoryURL.path) else { return 0 }
 
-        for name in previousRegistry.keys where desiredRegistry[name] == nil {
-            let url = popletBundleURL(named: name)
-            guard fileManager.fileExists(atPath: url.path) else { continue }
+        let entries = try fileManager.contentsOfDirectory(
+            at: directoryURL,
+            includingPropertiesForKeys: nil,
+            options: [.skipsHiddenFiles]
+        )
+
+        // Pure selection (testable). Foreign/keyless bundles and hidden/temp
+        // staging bundles are excluded; only bundles whose embedded UUID is not
+        // a current Pop are returned.
+        let onDisk = entries.map { url in
+            (filename: url.lastPathComponent, targetPopID: embeddedTargetPopID(of: url))
+        }
+        let orphanFilenames = Set(
+            PopletRegistry.orphanFilenames(onDisk: onDisk, currentPopIDs: currentPopIDs)
+        )
+
+        var removed = 0
+        for url in entries where orphanFilenames.contains(url.lastPathComponent) {
             try withBundleLocks(for: [url]) {
                 if fileManager.fileExists(atPath: url.path) {
                     try fileManager.removeItem(at: url)
@@ -555,6 +646,24 @@ final class PopletSyncService: @unchecked Sendable {
         }
 
         return removed
+    }
+
+    /// Reads `DockPopsTargetPopID` from a bundle's Info.plist, or nil for a
+    /// foreign/keyless bundle (one the user dropped in, or a non-Poplet `.app`).
+    private func embeddedTargetPopID(of bundleURL: URL) -> UUID? {
+        let infoPlistURL = bundleURL
+            .appending(path: "Contents", directoryHint: .isDirectory)
+            .appending(path: "Info.plist")
+        guard
+            let data = try? Data(contentsOf: infoPlistURL),
+            let plist = try? PropertyListSerialization.propertyList(
+                from: data, options: [], format: nil
+            ) as? [String: Any],
+            let uuidString = plist["DockPopsTargetPopID"] as? String
+        else {
+            return nil
+        }
+        return UUID(uuidString: uuidString)
     }
 
     private func ensureDirectory(_ url: URL) throws {
@@ -886,7 +995,11 @@ final class PopletSyncService: @unchecked Sendable {
         return max(1, hash & 0x7fff_ffff)
     }
 
-    private func existingBundleMatches(at bundleURL: URL, expectedVersion: String) -> Bool {
+    private func existingBundleMatches(
+        at bundleURL: URL,
+        expectedVersion: String,
+        expectedDisplayName: String
+    ) -> Bool {
         let contentsURL = bundleURL.appending(path: "Contents", directoryHint: .isDirectory)
         let infoPlistURL = contentsURL.appending(path: "Info.plist")
         let executableURL = contentsURL
@@ -906,17 +1019,26 @@ final class PopletSyncService: @unchecked Sendable {
         guard let currentRecipeVersion = plist[Self.popletIconRecipeVersionInfoKey] as? Int,
               currentRecipeVersion == Self.popletIconRecipeVersion
         else { return false }
+        // Catch a pure rename: same icon/version but a new label must still
+        // rewrite the bundle in place to update CFBundleDisplayName/CFBundleName.
+        guard let currentDisplayName = plist["CFBundleName"] as? String,
+              currentDisplayName == expectedDisplayName
+        else { return false }
         return true
     }
 
+    /// Installs the staged bundle at `destinationURL`.
+    ///
+    /// First creation moves staging → destination. When the destination
+    /// already exists, the staged `Contents/` is synced **into** the existing
+    /// `.app` directory (inner files replaced, stale ones removed) WITHOUT
+    /// swapping the top-level directory — so the `.app` keeps its inode and the
+    /// Dock pin survives (§3.2). Avoids `replaceItemAt`, which gives the
+    /// destination a new inode and can break the pin even without a rename.
     private func installGeneratedPopletBundle(at stagingURL: URL, destinationURL: URL) throws {
         if fileManager.fileExists(atPath: destinationURL.path) {
-            _ = try fileManager.replaceItemAt(
-                destinationURL,
-                withItemAt: stagingURL,
-                backupItemName: nil,
-                options: []
-            )
+            try DirectoryInPlaceSync.sync(from: stagingURL, to: destinationURL, fileManager: fileManager)
+            try? fileManager.removeItem(at: stagingURL)
         } else {
             try fileManager.moveItem(at: stagingURL, to: destinationURL)
         }
@@ -1026,12 +1148,18 @@ private struct ResolvedPopletIcon {
 
 /// SACRED CODE:
 /// The companion is the only process that should ever touch DockPops'
-/// protected shared container for live per-Pop icon data. Poplets must read
-/// only from the mirrored cache in `Application Support/DockPops Companion`.
+/// protected `group.com.dockpops.shared` container for live per-Pop icon data
+/// (it holds the security-scoped bookmark). It mirrors that data into NON-GATED
+/// copies that the ad-hoc Poplet binary reads:
+///   • `~/Applications/DockPops/Icons/` — load-bearing TCC-fix surface; the
+///     Poplet reads `<uuid>.png` (healer) + `<uuid>.live.png` (live tile) here.
+///   • `Application Support/DockPops Companion/PopletLiveIcons/` — the running
+///     tile's file-watcher source (defense-in-depth).
 ///
-/// If you are tempted to bypass this mirror and read `group.com.dockpops.shared`
-/// directly from a poplet, stop. That is how we got back into repeated folder
-/// prompts and generic blue fallback icons.
+/// If you are tempted to make a Poplet read `group.com.dockpops.shared`
+/// directly, stop. An ad-hoc Poplet isn't a member of that App Group, so the
+/// read trips the macOS 26 "data from other apps" prompt on every click — the
+/// exact bug this mirror exists to avoid.
 enum PopletLiveIconMirror {
     private static let mirrorFileExtension = "png"
 

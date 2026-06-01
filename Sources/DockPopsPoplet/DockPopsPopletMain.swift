@@ -72,20 +72,20 @@ private final class DockPopsPopletDelegate: NSObject, NSApplicationDelegate {
 
         installMenu()
 
-        // SACRED CODE (revised 2026-05-20):
-        // Poplets must never reopen shared-container access via the App
-        // Group ENTITLEMENT on launch. That entitlement path triggers TCC
-        // prompts on every click for ad-hoc signed bundles on macOS 26.
+        // SACRED CODE (revised 2026-05-29 — TCC fix):
+        // The Poplet must never read the `group.com.dockpops.shared` App Group
+        // container — NOT via the entitlement AND NOT via a hardcoded absolute
+        // path. App Group membership is per-binary signature; an ad-hoc Poplet
+        // isn't a member, so ANY container read trips the macOS 26 "would like
+        // to read data from other apps" prompt on every click (and ad-hoc
+        // cdhash churn means granted consent never survives a re-sign/reboot).
+        // The earlier note here claiming an absolute-path read is prompt-free
+        // was WRONG.
         //
-        // What IS allowed: a hardcoded ABSOLUTE PATH read of
-        // `~/Library/Group Containers/group.com.dockpops.shared/PopIcons/
-        // <uuid>.png`. POSIX permissions on that directory are
-        // `drwx------` user-owned; any process running as the user (the
-        // Poplet does — no sandbox, no entitlements) can read it given
-        // the path. No entitlement, no TCC prompt. See
-        // `PopletLiveIconController.refreshFromSharedContainer` and the
-        // cross-repo handoff `docs/handoffs/companion-poplet-poll-on-
-        // click.md` in DockPops Main.
+        // What IS allowed: reads of the NON-GATED `~/Applications/DockPops/
+        // Icons/` folder, where the generator writes verbatim icon byte-copies.
+        // See `PopletLiveIconController.refreshFromSharedContainer` (now reads
+        // `Icons/<uuid>.live.png`) and `PopletSharedPaths.iconsDirectoryURL`.
 
         // Method B — mirror the shared pop composite onto the running app's
         // Dock tile via NSApp.applicationIconImage using the companion's
