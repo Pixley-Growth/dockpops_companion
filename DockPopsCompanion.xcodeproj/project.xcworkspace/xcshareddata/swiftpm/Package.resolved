@@ -6,8 +6,8 @@
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/Pixley-Growth/PopletKit.git",
       "state" : {
-        "revision" : "4b815feb0ee5a85f53bf13e4c5db17749be218f5",
-        "version" : "0.1.0"
+        "revision" : "0289c091e1ed1eb13b2484d8c9957b9e697e62e2",
+        "version" : "0.1.1"
       }
     },
     {
