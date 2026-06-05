@@ -84,11 +84,17 @@ struct ContentView: View {
     }
 
     private var readyPopletsStateView: some View {
-        ReadyPopletsStateView(poplets: model.poplets, selection: $selectedPopletIDs)
-            .onChange(of: model.poplets.map(\.id)) { _, ids in
-                let validIDs = Set(ids)
-                selectedPopletIDs = selectedPopletIDs.intersection(validIDs)
-            }
+        ReadyPopletsStateView(
+            poplets: model.poplets,
+            selection: $selectedPopletIDs,
+            showsRenameFailureNotice: model.showsRenameFailureNotice,
+            onRevealPopletsFolder: { model.revealPopletsFolder() },
+            onDismissRenameFailureNotice: { model.dismissRenameFailureNotice() }
+        )
+        .onChange(of: model.poplets.map(\.id)) { _, ids in
+            let validIDs = Set(ids)
+            selectedPopletIDs = selectedPopletIDs.intersection(validIDs)
+        }
     }
 
     private var launchStateView: some View {
@@ -204,6 +210,9 @@ struct ContentView: View {
 private struct ReadyPopletsStateView: View {
     let poplets: [PopletStatus]
     @Binding var selection: Set<UUID>
+    let showsRenameFailureNotice: Bool
+    let onRevealPopletsFolder: () -> Void
+    let onDismissRenameFailureNotice: () -> Void
 
     var body: some View {
         VStack(alignment: .leading, spacing: CompanionLayout.Content.sectionSpacing) {
@@ -216,6 +225,13 @@ private struct ReadyPopletsStateView: View {
                 """
             )
 
+            if showsRenameFailureNotice {
+                RenameFailureNoticeBanner(
+                    onReveal: onRevealPopletsFolder,
+                    onDismiss: onDismissRenameFailureNotice
+                )
+            }
+
             // The grid fills the leftover height of the FIXED window and
             // scrolls internally (NSScrollView) if Pops ever exceed 20. It can
             // no longer inflate the window — the window is hard-pinned to
@@ -225,6 +241,54 @@ private struct ReadyPopletsStateView: View {
         }
         .padding(CompanionLayout.Content.outerPadding)
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+    }
+}
+
+private struct RenameFailureNoticeBanner: View {
+    let onReveal: () -> Void
+    let onDismiss: () -> Void
+
+    var body: some View {
+        HStack(alignment: .top, spacing: 12) {
+            Image(systemName: "exclamationmark.triangle.fill")
+                .font(.system(size: 22, weight: .semibold))
+                .foregroundStyle(Color.accentColor)
+
+            VStack(alignment: .leading, spacing: 6) {
+                Text("Couldn’t update a Dock name")
+                    .font(.headline)
+                Text("A Pop app’s Dock label couldn’t be updated automatically, so its pinned icon still shows the old name. Open the folder and drag the app to your Dock again to fix the label.")
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+
+                Button(action: onReveal) {
+                    Text("Reveal in Finder")
+                }
+                .buttonStyle(.link)
+            }
+
+            Spacer(minLength: 8)
+
+            Button {
+                onDismiss()
+            } label: {
+                Image(systemName: "xmark")
+                    .font(.system(size: 12, weight: .bold))
+            }
+            .buttonStyle(.borderless)
+            .help(Text("Dismiss"))
+        }
+        .padding(16)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(
+            Color.accentColor.opacity(0.10),
+            in: RoundedRectangle(cornerRadius: 16, style: .continuous)
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: 16, style: .continuous)
+                .strokeBorder(Color.accentColor.opacity(0.25))
+        )
     }
 }
 

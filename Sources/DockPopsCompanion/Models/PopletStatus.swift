@@ -37,4 +37,8 @@ struct SyncSnapshot: Sendable {
     var metadataAvailable: Bool
     var dockPopsFound: Bool
     var errorDescription: String?
+    /// At least one Pop's bundle rename failed this sync and was rolled back to
+    /// its previous (still-pinned) filename — drives the recovery banner. The
+    /// pin is never broken; the only fallout is a stale Dock-tile label.
+    var renameFailed = false
 }

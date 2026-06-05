@@ -108,10 +108,10 @@ final class PopletLiveIconController {
     /// SACRED ZONE #27 — Poll-on-click composite refresh
     /// ════════════════════════════════════════════════════════════════
     ///
-    /// Reads the 256×256 composite PNG straight from the shared
-    /// container's `PopIcons/<uuid>.live.png` sidecar (Main writes it
-    /// atomically there alongside the 1024² `<uuid>.png` for Companion's
-    /// icns) and applies it to `NSApp.applicationIconImage`. Call from
+    /// Reads the 256² live composite PNG from the **non-gated**
+    /// `~/Applications/DockPops/Icons/<uuid>.live.png` (written by the
+    /// generator as a verbatim byte-copy) and applies it to
+    /// `NSApp.applicationIconImage`. Call from
     /// `applicationDidFinishLaunching` (initial paint) and from
     /// `applicationShouldHandleReopen` (catches Pop edits made while the
     /// Poplet wasn't running OR while Companion wasn't running).
@@ -122,14 +122,19 @@ final class PopletLiveIconController {
     /// Disk poll-on-click is the only reliable "Poplet picks up Pop edits
     /// made while everything was off" pathway.
     ///
-    /// DO NOT change the file extension. Main writes `.live.png` (256²)
-    /// specifically for Poplet consumption; the 1024² `.png` would burn
-    /// ~75 MB resident across 20 Poplets for no visual gain because
-    /// `NSApp.applicationIconImage` retains the source-resolution bitmap
-    /// for the process lifetime. See
-    /// /Users/etoduarte/0. Coding/Swift/3. DockPops/docs/handoffs/
-    /// companion-poplet-poll-on-click.md § "Memory profile" for the
-    /// arithmetic.
+    /// TCC (2026-05-29): this MUST read the non-gated `Icons/` folder, never
+    /// the `group.com.dockpops.shared` App Group container. An ad-hoc Poplet
+    /// is not a group member (membership is per-binary signature), so a
+    /// container read — even by absolute path — trips the macOS 26 "data from
+    /// other apps" prompt on every click. The earlier note here claiming an
+    /// absolute-path container read is prompt-free was WRONG; the win is the
+    /// folder being non-gated, not the path being hardcoded.
+    ///
+    /// DO NOT change the file extension. The generator writes `.live.png`
+    /// (256²) specifically for Poplet consumption; the larger master `.png`
+    /// would burn resident memory for no visual gain because
+    /// `NSApp.applicationIconImage` retains the source-resolution bitmap for
+    /// the process lifetime.
     ///
     /// DO NOT remove the call sites in DockPopsPopletMain
     /// `applicationDidFinishLaunching` and `applicationShouldHandleReopen`
@@ -137,61 +142,16 @@ final class PopletLiveIconController {
     /// Removing either re-introduces the "icons don't update unless
     /// Companion is running" regression.
     /// ════════════════════════════════════════════════════════════════
-    ///
-    /// Per cross-repo handoff `docs/handoffs/companion-poplet-poll-on-click.md`
-    /// in DockPops Main (2026-05-20, revision 2):
-    ///   • Main writes THREE files atomically per scheduleExport cycle:
-    ///     `<uuid>.png` (1024²) for Companion's icns generation,
-    ///     `<uuid>.live.png` (256²) for Poplets, and the canonical
-    ///     `<uuid>.fingerprint`.
-    ///   • Companion's Poplet reads `.live.png` directly via absolute
-    ///     path. NO App Group entitlement, NO security-scoped bookmark,
-    ///     NO Companion dependency. Just POSIX file read.
-    ///   • Why .live.png and not .png: `NSApp.applicationIconImage`
-    ///     retains the source-resolution bitmap for the Poplet's
-    ///     lifetime. 20 Poplets × 4 MB (1024² RGBA) = ~80 MB resident.
-    ///     256² source = ~5 MB. The Dock tile is at most ~256 px on
-    ///     Retina at the largest Dock setting, so the larger file would
-    ///     be wasted bytes for zero visual gain.
-    ///   • Same bytes as the DNC broadcast: Main computes the 256² PNG
-    ///     once per cycle and uses identical bytes for both `.live.png`
-    ///     and the `iconUpdated` userInfo. No divergence possible.
-    ///
-    /// SACRED relaxation (2026-05-20):
-    /// `DockPopsPopletMain.applicationDidFinishLaunching`'s SACRED block
-    /// previously stated "Poplets must never reopen shared-container
-    /// access on launch." That SACRED was about App Group ENTITLEMENT
-    /// access (which triggers TCC prompts on every click for ad-hoc
-    /// signed bundles per macOS 26). This call does NOT use the
-    /// entitlement — it uses a hardcoded absolute path. POSIX
-    /// permissions on the App Group container directory are
-    /// `drwx------` user-owned, so any process running as the user
-    /// (which the Poplet does — no sandbox, no entitlements) can read
-    /// the contents when the path is known. Verified empirically.
     func refreshFromSharedContainer() {
-        let liveURL = Self.sharedPopIconDirectory
-            .appending(path: "\(popID.uuidString).live.png")
+        // TCC fix (2026-05-29): read the 256² live PNG from the NON-GATED
+        // `~/Applications/DockPops/Icons/<uuid>.live.png`, never the App Group
+        // container. An ad-hoc Poplet isn't a group member, so a container read
+        // trips the "data from other apps" prompt on every click. The generator
+        // writes a verbatim byte-copy here. See PopletSharedPaths SACRED note.
+        let liveURL = PopletSharedPaths.iconLiveURL(for: popID)
         guard let data = try? Data(contentsOf: liveURL) else { return }
         applyIconFromIPC(data)
     }
-
-    /// Hardcoded path to Main's `PopIcons/` directory in the App Group
-    /// container. Poplets cannot resolve `group.com.dockpops.shared` via
-    /// `FileManager.containerURL(forSecurityApplicationGroupIdentifier:)`
-    /// because they're ad-hoc signed and don't carry the App Group
-    /// entitlement — so this constant hardcodes the absolute path under
-    /// `~/Library/Group Containers/`. macOS allows cross-process reads
-    /// of app group containers via direct path when the caller has
-    /// POSIX read permission (which is "process runs as the file's
-    /// owner" — true here since both Main and the Poplet run as the
-    /// user).
-    private static let sharedPopIconDirectory: URL = {
-        FileManager.default
-            .homeDirectoryForCurrentUser
-            .appending(path: "Library/Group Containers")
-            .appending(path: "group.com.dockpops.shared")
-            .appending(path: "PopIcons")
-    }()
 
     func stop() {
         debounceTask?.cancel()

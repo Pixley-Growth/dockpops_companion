@@ -47,4 +47,14 @@ enum AppPaths {
 
     static let popletsDirectoryURL = FileManager.default.homeDirectoryForCurrentUser
         .appending(path: "Applications/DockPops", directoryHint: .isDirectory)
+
+    /// `~/Applications/DockPops/Icons/` — the **non-gated** folder the ad-hoc
+    /// Poplet binary reads its icons from (TCC fix). The generator writes
+    /// verbatim byte-copies of the container's `<uuid>.png` + `<uuid>.live.png`
+    /// here; the Poplet reads them with zero App-Group access (and thus no
+    /// "data from other apps" prompt). Mirrors the main repo's
+    /// `PopletPaths.iconsDirectoryURL`, and is the same path the Poplet binary
+    /// resolves in `PopletSharedPaths.iconsDirectoryURL`.
+    static let iconsDirectoryURL = popletsDirectoryURL
+        .appending(path: "Icons", directoryHint: .isDirectory)
 }

@@ -42,17 +42,17 @@ struct PopletBundleIconHealer: Sendable {
     init(popID: UUID, bundleURL: URL) {
         self.popID = popID
         self.bundleURL = bundleURL
-        // Canonical 1024² master written by DockPops Main. NOT the Companion
-        // mirror (stale when Companion isn't running) and NOT .live.png (256²
-        // runtime variant — too small for iconutil's 1024² slot).
+        // Master PNG for closed-bundle repair, read from the NON-GATED
+        // `~/Applications/DockPops/Icons/<uuid>.png` (the generator's verbatim
+        // byte-copy). NOT the App Group container: an ad-hoc Poplet isn't a
+        // group member, so a container read trips the macOS 26 "data from other
+        // apps" prompt (TCC fix 2026-05-29). NOT .live.png (256² runtime variant
+        // — too small for iconutil's larger slots).
         self.sourcePNG = Self.canonicalPopIconURL(for: popID)
     }
 
     private static func canonicalPopIconURL(for popID: UUID) -> URL {
-        FileManager.default.homeDirectoryForCurrentUser
-            .appending(path: "Library/Group Containers/group.com.dockpops.shared", directoryHint: .isDirectory)
-            .appending(path: "PopIcons", directoryHint: .isDirectory)
-            .appending(path: "\(popID.uuidString).png")
+        PopletSharedPaths.iconMasterURL(for: popID)
     }
 
     func healIfStale() async {

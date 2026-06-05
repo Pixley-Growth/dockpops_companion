@@ -15,6 +15,7 @@
 		4B831345F40DB7399938276F /* PopletLiveIconController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 89C5F587BF61758FDCF0F18E /* PopletLiveIconController.swift */; };
 		522B475BD4A8345FCD563F66 /* PopletIconView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9E5D91F351285A8A82DDE96F /* PopletIconView.swift */; };
 		6908134615AD796F0841A477 /* PopletStatus.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9FB099EAF70E6CE380F609A2 /* PopletStatus.swift */; };
+		6D5DB140AECABBFB5156C7F7 /* PopletKit in Frameworks */ = {isa = PBXBuildFile; productRef = DEC5DB86CBBADAE7451DA576 /* PopletKit */; };
 		72821E7AF82CDB87B6E0C5A1 /* PopletDockPopsIconPreferences.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5E5505589B9D2986C60416C0 /* PopletDockPopsIconPreferences.swift */; };
 		75E490F62A19AEBFB6AC8490 /* CompanionModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 24E4C8F5283BA21C31D56F7A /* CompanionModel.swift */; };
 		7D83C2E78C7761D79F983827 /* SharedContainerAccess.swift in Sources */ = {isa = PBXBuildFile; fileRef = 875664A21CB29411288F8493 /* SharedContainerAccess.swift */; };
@@ -80,6 +81,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				E1D5204DE49BF4E910CA8FA2 /* Sparkle in Frameworks */,
+				6D5DB140AECABBFB5156C7F7 /* PopletKit in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -203,6 +205,7 @@
 			name = DockPopsCompanion;
 			packageProductDependencies = (
 				7541306F6443D5BDE5F85796 /* Sparkle */,
+				DEC5DB86CBBADAE7451DA576 /* PopletKit */,
 			);
 			productName = DockPopsCompanion;
 			productReference = 15F6DDAD9BE2A2B5964AA37C /* DockPopsCompanion.app */;
@@ -253,6 +256,7 @@
 			mainGroup = 33F0B1972284514B90DA6578;
 			minimizedProjectReferenceProxies = 1;
 			packageReferences = (
+				B190B28BFC86FCDDFC696AAF /* XCRemoteSwiftPackageReference "PopletKit" */,
 				7E628B0C15B092BA0DB4FC1D /* XCRemoteSwiftPackageReference "Sparkle" */,
 			);
 			preferredProjectObjectVersion = 77;
@@ -387,7 +391,7 @@
 				CODE_SIGN_IDENTITY = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
 				COPY_PHASE_STRIP = NO;
-				CURRENT_PROJECT_VERSION = 10;
+				CURRENT_PROJECT_VERSION = 22;
 				DEAD_CODE_STRIPPING = YES;
 				DEBUG_INFORMATION_FORMAT = dwarf;
 				DEVELOPMENT_TEAM = JN6FKBBBYQ;
@@ -410,7 +414,7 @@
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
 				MACOSX_DEPLOYMENT_TARGET = 14.0;
-				MARKETING_VERSION = 4.1;
+				MARKETING_VERSION = 4.3;
 				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
 				MTL_FAST_MATH = YES;
 				ONLY_ACTIVE_ARCH = YES;
@@ -480,7 +484,7 @@
 				CODE_SIGN_IDENTITY = "Developer ID Application";
 				CODE_SIGN_STYLE = Manual;
 				COPY_PHASE_STRIP = NO;
-				CURRENT_PROJECT_VERSION = 10;
+				CURRENT_PROJECT_VERSION = 22;
 				DEAD_CODE_STRIPPING = YES;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				DEVELOPMENT_TEAM = JN6FKBBBYQ;
@@ -497,7 +501,7 @@
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
 				MACOSX_DEPLOYMENT_TARGET = 14.0;
-				MARKETING_VERSION = 4.1;
+				MARKETING_VERSION = 4.3;
 				MTL_ENABLE_DEBUG_INFO = NO;
 				MTL_FAST_MATH = YES;
 				PRODUCT_NAME = "$(TARGET_NAME)";
@@ -603,6 +607,14 @@
 				minimumVersion = 2.9.1;
 			};
 		};
+		B190B28BFC86FCDDFC696AAF /* XCRemoteSwiftPackageReference "PopletKit" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/Pixley-Growth/PopletKit.git";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 0.1.0;
+			};
+		};
 /* End XCRemoteSwiftPackageReference section */
 
 /* Begin XCSwiftPackageProductDependency section */
@@ -610,6 +622,11 @@
 			isa = XCSwiftPackageProductDependency;
 			package = 7E628B0C15B092BA0DB4FC1D /* XCRemoteSwiftPackageReference "Sparkle" */;
 			productName = Sparkle;
+		};
+		DEC5DB86CBBADAE7451DA576 /* PopletKit */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = B190B28BFC86FCDDFC696AAF /* XCRemoteSwiftPackageReference "PopletKit" */;
+			productName = PopletKit;
 		};
 /* End XCSwiftPackageProductDependency section */
 	};

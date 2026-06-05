@@ -1,6 +1,54 @@
 {
   "sourceLanguage" : "en",
   "strings" : {
+    "Dismiss" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Schließen"
+          }
+        },
+        "es-419" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Descartar"
+          }
+        }
+      }
+    },
+    "If a DockPops icon in your Dock shows a “?”, drag it from ~/Applications/DockPops to the Dock again." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Wenn ein DockPops-Symbol im Dock ein „?“ anzeigt, ziehe es erneut aus ~/Applications/DockPops in das Dock."
+          }
+        },
+        "es-419" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Si un ícono de DockPops en tu Dock muestra un “?”, arrástralo otra vez desde ~/Applications/DockPops al Dock."
+          }
+        }
+      }
+    },
+    "Seeing a “?” on a Dock icon?" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ein „?“ auf einem Dock-Symbol?"
+          }
+        },
+        "es-419" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "¿Ves un “?” en un ícono del Dock?"
+          }
+        }
+      }
+    },
     "Allow" : {
       "extractionState" : "stale",
       "localizations" : {
