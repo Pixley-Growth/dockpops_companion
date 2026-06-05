@@ -3,6 +3,25 @@
     <channel>
         <title>DockPopsCompanion</title>
         <item>
+            <title>4.3</title>
+            <pubDate>Fri, 05 Jun 2026 15:02:06 -0500</pubDate>
+            <sparkle:version>23</sparkle:version>
+            <sparkle:shortVersionString>4.3</sparkle:shortVersionString>
+            <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
+            <description sparkle:format="markdown"><![CDATA[## DockPops Companion 4.3
+
+- Clicking a pinned Pop app no longer triggers a macOS "wants to access data from other apps" permission prompt. Pop apps now open quietly the first time, every time.
+- Renaming a Pop updates its Pop app's Dock tile name in place. The icon you pinned keeps working — no more dead "?" tiles after a rename.
+- Deleting a Pop automatically removes its leftover Pop app from ~/Applications/DockPops.
+- Pop app icons refresh on their own when artwork changes — no click needed — and older icons that had an extra white border rebake automatically.
+- The "drag to Dock" button for renamed Pops in the App Store version of DockPops now works again (paired with the DockPops 4.3 update).
+
+### If a pinned icon ever shows a "?"
+A small number of icons pinned by much older versions may show a "?" after this update. Just drag that Pop app from ~/Applications/DockPops back into the Dock once and it will work again.
+]]></description>
+            <enclosure url="https://github.com/Pixley-Growth/dockpops_companion/releases/download/v4.3.0/DockPopsCompanion-4.3.dmg" length="8344533" type="application/octet-stream" sparkle:edSignature="l1eSEkrJdS5A6HZT/9NfuiMHuxHoAg5nXan4ye0176f61TMRdXdfYWyP0E4dz5YNeK6oaYTM9s7e99SUIzIgDw=="/>
+        </item>
+        <item>
             <title>4.1</title>
             <pubDate>Thu, 21 May 2026 15:43:30 -0500</pubDate>
             <sparkle:version>21</sparkle:version>
