@@ -149,7 +149,9 @@ final class PopletLiveIconController {
         // trips the "data from other apps" prompt on every click. The generator
         // writes a verbatim byte-copy here. See PopletSharedPaths SACRED note.
         let liveURL = PopletSharedPaths.iconLiveURL(for: popID)
-        guard let data = try? Data(contentsOf: liveURL) else { return }
+        let data = try? Data(contentsOf: liveURL)
+        Self.logger.notice("2CLICK refresh policy=\(NSApp.activationPolicy().rawValue, privacy: .public) bytes=\(data?.count ?? -1, privacy: .public)")
+        guard let data else { return }
         applyIconFromIPC(data)
     }
 
@@ -201,6 +203,23 @@ final class PopletLiveIconController {
         applyIconFromIPC(iconData)
     }
 
+    /// Sets the Dock-tile icon on the NEXT runloop turn (never synchronously) and
+    /// forces an immediate recomposite. A Dock click drives this resident
+    /// `.accessory` Poplet through a transient `.regular` activation edge; a
+    /// SYNCHRONOUS `applicationIconImage` set inside `applicationShouldHandleReopen`
+    /// runs DURING that edge and gets clobbered when AppKit re-reads the bundle icon
+    /// — the persistent "two clicks to update" bug. Deferring past the edge +
+    /// `dockTile.display()` makes the fresh icon stick on the FIRST click. The
+    /// live-IPC and directory-watcher paths funnel through here too, so they inherit
+    /// the fix. (Mirror of the same fix in the main DockPops repo's DockPopsPoplet.)
+    private func setDockIcon(_ image: NSImage?) {
+        Task { @MainActor in
+            NSApp.applicationIconImage = image
+            NSApp.dockTile.display()
+            Self.logger.notice("2CLICK setDockIcon applied (deferred)")
+        }
+    }
+
     /// Apply an icon delivered over IPC. Bypasses the file-watcher signature
     /// dedup (which compares mtime + filesize of the mirrored PNG on disk).
     /// Clearing `lastAppliedIconSignature` lets a later file-watcher fire
@@ -213,7 +232,7 @@ final class PopletLiveIconController {
             // If the inset/mask normalizer can't run, fall back to the raw
             // decode so the Poplet at least picks up the new artwork.
             if let decoded = NSImage(data: data) {
-                NSApp.applicationIconImage = decoded
+                setDockIcon(decoded)
                 lastAppliedIconSignature = nil
             }
             return
@@ -222,13 +241,13 @@ final class PopletLiveIconController {
             cgImage: normalized,
             size: NSSize(width: CGFloat(normalized.width), height: CGFloat(normalized.height))
         )
-        NSApp.applicationIconImage = image
+        setDockIcon(image)
         lastAppliedIconSignature = nil
     }
 
     private func applyLatestIcon() -> RefreshResult {
         guard let popIconURL else {
-            NSApp.applicationIconImage = fallbackApplicationIconImage()
+            setDockIcon(fallbackApplicationIconImage())
             return .missing
         }
         guard let signature = currentIconSignature() else {
@@ -236,7 +255,7 @@ final class PopletLiveIconController {
             // Fall back to the current DockPops app icon if available so the
             // live poplet never snaps back to a stale baked/default icon.
             lastAppliedIconSignature = nil
-            NSApp.applicationIconImage = fallbackApplicationIconImage()
+            setDockIcon(fallbackApplicationIconImage())
             return .missing
         }
         guard signature != lastAppliedIconSignature else { return .unchanged }
@@ -261,7 +280,7 @@ final class PopletLiveIconController {
         // The mirrored PNG is already the final composed app icon. Show it on
         // a presentation canvas so the running tile matches the intended
         // poplet app-icon size instead of filling the Dock too aggressively.
-        NSApp.applicationIconImage = image
+        setDockIcon(image)
         lastAppliedIconSignature = signature
         return .applied
     }
