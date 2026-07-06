@@ -21,9 +21,14 @@ import Foundation
 /// exactly what re-introduces the prompt.
 ///
 /// The Companion-internal mirror in `…/Application Support/DockPops Companion/
-/// PopletLiveIcons/` (`mirroredPopIconsDirectoryURL`) is non-gated and stays as
-/// the running-tile file watcher's defense-in-depth source; it is not the
-/// load-bearing read path.
+/// PopletLiveIcons/` (`mirroredPopIconsDirectoryURL`) is non-gated. WATCH TARGET
+/// (2026-07-06, two-click fix): Poplets now WATCH `iconsDirectoryURL`
+/// (`~/Applications/DockPops/Icons/`) — the non-gated folder BOTH MAIN and the
+/// generator write — instead of the Companion-only mirror above. Watching Icons/
+/// lets a resident Poplet proactively heal its bundle on a MAIN edit even when the
+/// COMPANION is CLOSED (the mirror is written only while the Companion runs, which
+/// was the "two clicks with Companion closed" bug). The mirror stays a permitted
+/// non-gated fallback source, just no longer the watch target.
 enum PopletSharedPaths {
     static let dockPopsBundleIdentifier = "com.dockpops.app"
 
@@ -67,35 +72,47 @@ enum PopletSharedPaths {
         iconsDirectoryURL.appending(path: "\(popID.uuidString).live.png")
     }
 
-    static func assertUsesMirroredLiveIconsDirectory(
+    /// Non-gated live-icon folders a Poplet may watch/read: the canonical
+    /// `~/Applications/DockPops/Icons/` (written by BOTH MAIN and the generator)
+    /// and the Companion mirror. The FORBIDDEN target is the
+    /// `group.com.dockpops.shared` App Group container — reading it trips the
+    /// macOS 26 per-click TCC prompt on an ad-hoc Poplet. Neither folder here is
+    /// gated, so both are safe.
+    private static var nonGatedLiveIconDirectoryPaths: [String] {
+        [iconsDirectoryURL, mirroredPopIconsDirectoryURL]
+            .map { $0.standardizedFileURL.path }
+    }
+
+    static func assertUsesNonGatedLiveIconsDirectory(
         _ url: URL,
         file: StaticString = #fileID,
         line: UInt = #line
     ) {
         precondition(
-            url.standardizedFileURL.path == mirroredPopIconsDirectoryURL.standardizedFileURL.path,
+            nonGatedLiveIconDirectoryPaths.contains(url.standardizedFileURL.path),
             """
-            SACRED CODE: Poplets must read live icons only from the companion mirror at \
-            \(mirroredPopIconsDirectoryURL.path). Do not point them back at DockPops' \
-            protected shared container.
+            SACRED CODE: Poplets must watch/read live icons from a NON-GATED folder — \
+            \(iconsDirectoryURL.path) or \(mirroredPopIconsDirectoryURL.path) — never the \
+            group.com.dockpops.shared App Group container (per-click TCC prompt).
             """,
             file: file,
             line: line
         )
     }
 
-    static func assertUsesMirroredLiveIconFile(
+    static func assertUsesNonGatedLiveIconFile(
         _ url: URL,
         file: StaticString = #fileID,
         line: UInt = #line
     ) {
         precondition(
-            url.deletingLastPathComponent().standardizedFileURL.path
-                == mirroredPopIconsDirectoryURL.standardizedFileURL.path,
+            nonGatedLiveIconDirectoryPaths.contains(
+                url.deletingLastPathComponent().standardizedFileURL.path
+            ),
             """
-            SACRED CODE: Poplet live icon files must live under \
-            \(mirroredPopIconsDirectoryURL.path). If this fires, someone wired \
-            the poplet back to the wrong icon source.
+            SACRED CODE: Poplet live icon files must live under a NON-GATED folder — \
+            \(iconsDirectoryURL.path) or \(mirroredPopIconsDirectoryURL.path). If this \
+            fires, someone wired the poplet to the gated App Group container.
             """,
             file: file,
             line: line

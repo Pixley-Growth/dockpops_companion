@@ -128,13 +128,19 @@ private final class DockPopsPopletDelegate: NSObject, NSApplicationDelegate {
         // Closed-bundle repair on EVERY click. Poplets are .accessory+resident,
         // so applicationDidFinishLaunching fires only once per session — the
         // healer must also run on reopen, otherwise mid-session Pop edits never
-        // reach disk and Finder / cold-launch tiles stay stale.
-        //
-        // TWO-CLICK FIX: route through the controller's healOnClick(), which
-        // re-applies the icon AFTER the heal finishes. The log proved the heal
-        // takes ~1s and the plate only lifts once applicationIconImage is re-set
-        // POST-heal — otherwise that re-set only happened on the *next* click.
-        liveIconController?.healOnClick()
+        // reach disk and Finder / cold-launch tiles stay stale. This on-click
+        // heal is the FALLBACK; the FIRST-click fix is the proactive heal fired by
+        // the directory watcher on Icons/ (PopletLiveIconController), which runs
+        // ahead of the click even with the Companion closed.
+        if let popID = UUID(uuidString: rawPopID) {
+            let healer = PopletBundleIconHealer(
+                popID: popID,
+                bundleURL: Bundle.main.bundleURL
+            )
+            Task.detached(priority: .utility) {
+                await healer.healIfStale()
+            }
+        }
 
         openPop()
         return false
