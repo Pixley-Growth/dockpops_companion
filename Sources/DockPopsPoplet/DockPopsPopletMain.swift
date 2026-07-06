@@ -129,15 +129,12 @@ private final class DockPopsPopletDelegate: NSObject, NSApplicationDelegate {
         // so applicationDidFinishLaunching fires only once per session — the
         // healer must also run on reopen, otherwise mid-session Pop edits never
         // reach disk and Finder / cold-launch tiles stay stale.
-        if let popID = UUID(uuidString: rawPopID) {
-            let healer = PopletBundleIconHealer(
-                popID: popID,
-                bundleURL: Bundle.main.bundleURL
-            )
-            Task.detached(priority: .utility) {
-                await healer.healIfStale()
-            }
-        }
+        //
+        // TWO-CLICK FIX: route through the controller's healOnClick(), which
+        // re-applies the icon AFTER the heal finishes. The log proved the heal
+        // takes ~1s and the plate only lifts once applicationIconImage is re-set
+        // POST-heal — otherwise that re-set only happened on the *next* click.
+        liveIconController?.healOnClick()
 
         openPop()
         return false

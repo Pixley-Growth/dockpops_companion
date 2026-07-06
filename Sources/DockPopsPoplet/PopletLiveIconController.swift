@@ -426,11 +426,37 @@ final class PopletLiveIconController {
         let popID = self.popID
         let bundleURL = Bundle.main.bundleURL
         let delay = healSettleDelay
-        healDebounceTask = Task.detached(priority: .utility) {
+        healDebounceTask = Task.detached(priority: .utility) { [weak self] in
             try? await Task.sleep(for: delay)
             guard !Task.isCancelled else { return }
             await PopletBundleIconHealer(popID: popID, bundleURL: bundleURL).healIfStale()
+            await self?.reapplyAfterHeal()
         }
+    }
+
+    /// Reopen-click heal: heal off-main, then re-apply the icon so the running tile
+    /// flips on THIS click instead of the next one. Called from
+    /// `applicationShouldHandleReopen` (replaces the inline detached healer).
+    func healOnClick() {
+        let popID = self.popID
+        let bundleURL = Bundle.main.bundleURL
+        Task.detached(priority: .utility) { [weak self] in
+            await PopletBundleIconHealer(popID: popID, bundleURL: bundleURL).healIfStale()
+            await self?.reapplyAfterHeal()
+        }
+    }
+
+    /// Re-apply the icon on the main actor AFTER a heal completes. The heal strips
+    /// the macOS-26 Tahoe plate (via the Finder custom icon); the log proved the
+    /// tile only picks up the un-plated artwork on a FRESH `applicationIconImage`
+    /// set — which otherwise only happens on the next click. Doing it here removes
+    /// that extra click. Clears the signature dedup: the PNG bytes didn't change,
+    /// only the plate state flipped.
+    @MainActor
+    private func reapplyAfterHeal() {
+        lastAppliedIconSignature = nil
+        _ = applyLatestIcon()
+        Self.logger.notice("2CLICK reapplyAfterHeal (post-heal re-apply)")
     }
 
     private func refreshAfterWatcherAttach() {
