@@ -64,6 +64,14 @@ final class PopletLiveIconController {
     /// or contents visibly flip. A short confirmation retry keeps the live
     /// tile from getting stuck one move behind on discrete organizer edits.
     private let settleDelay: Duration = .milliseconds(50)
+    /// B — proactive-heal debounce. The running Poplet tile follows the bundle's
+    /// HEALED icon (Finder-custom-icon / Tahoe-plate escape hatch), NOT
+    /// `applicationIconImage`. So when MAIN writes a fresh PNG we must heal the
+    /// bundle BEFORE the click. Fire the same on-click heal here, debounced by
+    /// `healSettleDelay` so a color-drag's PNG stream heals ONCE after it settles —
+    /// avoiding the SACRED-#28 per-event "generic folder" flash.
+    private var healDebounceTask: Task<Void, Never>?
+    private let healSettleDelay: Duration = .milliseconds(600)
 
     init(
         popID: UUID,
@@ -162,6 +170,8 @@ final class PopletLiveIconController {
         settleRetryTask = nil
         watcherRetryTask?.cancel()
         watcherRetryTask = nil
+        healDebounceTask?.cancel()
+        healDebounceTask = nil
         invalidateDirectoryWatcher()
         removeIconUpdateObserver()
     }
@@ -402,6 +412,25 @@ final class PopletLiveIconController {
             return
         }
         scheduleDebouncedRefresh()
+        scheduleProactiveHeal()
+    }
+
+    /// B: heal this Poplet's bundle icon PROACTIVELY when MAIN writes a fresh PNG,
+    /// so the tile is correct on the FIRST click without the Companion running.
+    /// Runs the SAME full heal the reopen path runs (icns + Finder-icon + re-sign),
+    /// just fired on the settled directory-watcher edit instead of one click late.
+    /// Debounced + off the main actor; `healIfStale`'s `bundleNeedsHeal` no-ops when
+    /// nothing changed, so the 2–3 redundant FS events of an atomic write cost nothing.
+    private func scheduleProactiveHeal() {
+        healDebounceTask?.cancel()
+        let popID = self.popID
+        let bundleURL = Bundle.main.bundleURL
+        let delay = healSettleDelay
+        healDebounceTask = Task.detached(priority: .utility) {
+            try? await Task.sleep(for: delay)
+            guard !Task.isCancelled else { return }
+            await PopletBundleIconHealer(popID: popID, bundleURL: bundleURL).healIfStale()
+        }
     }
 
     private func refreshAfterWatcherAttach() {
