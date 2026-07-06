@@ -161,9 +161,7 @@ final class PopletLiveIconController {
         // trips the "data from other apps" prompt on every click. The generator
         // writes a verbatim byte-copy here. See PopletSharedPaths SACRED note.
         let liveURL = PopletSharedPaths.iconLiveURL(for: popID)
-        let data = try? Data(contentsOf: liveURL)
-        Self.logger.notice("2CLICK refresh policy=\(NSApp.activationPolicy().rawValue, privacy: .public) bytes=\(data?.count ?? -1, privacy: .public)")
-        guard let data else { return }
+        guard let data = try? Data(contentsOf: liveURL) else { return }
         applyIconFromIPC(data)
     }
 
@@ -423,7 +421,6 @@ final class PopletLiveIconController {
     /// the main actor; `bundleNeedsHeal` no-ops when nothing changed, so the 2–3
     /// redundant FS events of an atomic write cost nothing.
     private func scheduleProactiveHeal() {
-        Self.logger.notice("2CLICK proactive heal FIRED (watcher edit on Icons/)")
         healDebounceTask?.cancel()
         let popID = self.popID
         let bundleURL = Bundle.main.bundleURL

@@ -78,9 +78,7 @@ struct PopletBundleIconHealer: Sendable {
             Self.logger.info("canonical missing for \(self.bundleURL.lastPathComponent, privacy: .public)")
             return
         }
-        let needsHeal = try bundleNeedsHeal(source: sourcePNG, target: targetICNS)
-        Self.logger.notice("2CLICK heal needsHeal=\(needsHeal, privacy: .public)")
-        guard needsHeal else { return }
+        guard try bundleNeedsHeal(source: sourcePNG, target: targetICNS) else { return }
 
         try await clearFinderCustomIconIfPresent()
         try regenerateICNS(from: sourcePNG, to: targetICNS)
@@ -125,8 +123,8 @@ struct PopletBundleIconHealer: Sendable {
         await applyFinderCustomIconIfPossible(from: sourcePNG)
         registerWithLaunchServices(bundleURL: bundleURL)
 
-        Self.logger.notice(
-            "2CLICK heal DONE for \(bundleURL.lastPathComponent, privacy: .public)"
+        Self.logger.info(
+            "icon healed for \(bundleURL.lastPathComponent, privacy: .public)"
         )
     }
 
