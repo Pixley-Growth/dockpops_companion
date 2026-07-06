@@ -3,16 +3,20 @@ import Foundation
 import os
 
 /// SACRED CODE:
-/// The running poplet must consume live icons only from the companion-owned
-/// mirrored cache. It must not read DockPops' protected shared container or
-/// private prefs directly.
+/// The running poplet must consume live icons only from NON-GATED folders. It must
+/// not read DockPops' `group.com.dockpops.shared` App Group container or private
+/// prefs directly (per-click TCC prompt on an ad-hoc Poplet).
 ///
-/// Method B keeps the running poplet's Dock tile mirroring that companion live
-/// icon cache. It is purely in-memory via `NSApp.applicationIconImage`, so it
-/// can never invalidate the bundle signature.
+/// Two-click note (2026-07-06): the resident `.accessory` Dock tile does NOT follow
+/// `applicationIconImage` — across a click's transient `.regular` activation edge
+/// AppKit re-reads the bundle's on-disk icon, which only the bundle HEAL updates.
+/// So the tile fix is the PROACTIVE heal, fired by the directory watcher.
 ///
-/// Watches the mirrored `PopletLiveIcons/` directory rather than the specific
-/// PNG file so atomic-rename writes (new inode) still fire events.
+/// Watches `~/Applications/DockPops/Icons/` (`iconsDirectoryURL`) — the folder BOTH
+/// MAIN and the generator write — rather than the Companion-only mirror, so the
+/// watcher fires (and the proactive heal runs) on a MAIN edit even when the
+/// COMPANION is CLOSED. Watches the DIRECTORY, not the specific PNG, so
+/// atomic-rename writes (new inode) still fire events.
 @MainActor
 final class PopletLiveIconController {
     private struct IconFileSignature: Equatable {
@@ -64,10 +68,18 @@ final class PopletLiveIconController {
     /// or contents visibly flip. A short confirmation retry keeps the live
     /// tile from getting stuck one move behind on discrete organizer edits.
     private let settleDelay: Duration = .milliseconds(50)
+    /// B — proactive-heal debounce. The running Poplet tile follows the bundle's
+    /// HEALED icon (Finder-custom-icon / Tahoe-plate escape hatch), NOT
+    /// `applicationIconImage`. So when MAIN writes a fresh PNG we must heal the
+    /// bundle BEFORE the click. Fire the same on-click heal here, debounced by
+    /// `healSettleDelay` so a color-drag's PNG stream heals ONCE after it settles —
+    /// avoiding the SACRED-#28 per-event "generic folder" flash.
+    private var healDebounceTask: Task<Void, Never>?
+    private let healSettleDelay: Duration = .milliseconds(600)
 
     init(
         popID: UUID,
-        liveIconsDirectoryURL: URL? = PopletSharedPaths.mirroredPopIconsDirectoryURL,
+        liveIconsDirectoryURL: URL? = PopletSharedPaths.iconsDirectoryURL,
         bundleURL: URL = Bundle.main.bundleURL
     ) {
         self.popID = popID
@@ -78,10 +90,10 @@ final class PopletLiveIconController {
         }
 
         if let liveIconsDirectoryURL {
-            PopletSharedPaths.assertUsesMirroredLiveIconsDirectory(liveIconsDirectoryURL)
+            PopletSharedPaths.assertUsesNonGatedLiveIconsDirectory(liveIconsDirectoryURL)
         }
         if let popIconURL {
-            PopletSharedPaths.assertUsesMirroredLiveIconFile(popIconURL)
+            PopletSharedPaths.assertUsesNonGatedLiveIconFile(popIconURL)
         }
     }
 
@@ -160,6 +172,8 @@ final class PopletLiveIconController {
         settleRetryTask = nil
         watcherRetryTask?.cancel()
         watcherRetryTask = nil
+        healDebounceTask?.cancel()
+        healDebounceTask = nil
         invalidateDirectoryWatcher()
         removeIconUpdateObserver()
     }
@@ -201,6 +215,17 @@ final class PopletLiveIconController {
         applyIconFromIPC(iconData)
     }
 
+    /// Sets the running Poplet's `applicationIconImage`. NOTE: on a resident
+    /// `.accessory` Poplet the Dock tile does NOT follow `applicationIconImage`
+    /// across a click's transient `.regular` activation edge — it re-reads the
+    /// bundle's on-disk (Finder-custom) icon, which only the bundle HEAL updates.
+    /// So this set is cosmetic for the at-rest/initial paint; the two-click fix
+    /// lives in the proactive bundle heal (`scheduleProactiveHeal`), NOT here. An
+    /// earlier defer + `dockTile.display()` "fix" here was disproven by the logs.
+    private func setDockIcon(_ image: NSImage?) {
+        NSApp.applicationIconImage = image
+    }
+
     /// Apply an icon delivered over IPC. Bypasses the file-watcher signature
     /// dedup (which compares mtime + filesize of the mirrored PNG on disk).
     /// Clearing `lastAppliedIconSignature` lets a later file-watcher fire
@@ -213,7 +238,7 @@ final class PopletLiveIconController {
             // If the inset/mask normalizer can't run, fall back to the raw
             // decode so the Poplet at least picks up the new artwork.
             if let decoded = NSImage(data: data) {
-                NSApp.applicationIconImage = decoded
+                setDockIcon(decoded)
                 lastAppliedIconSignature = nil
             }
             return
@@ -222,13 +247,13 @@ final class PopletLiveIconController {
             cgImage: normalized,
             size: NSSize(width: CGFloat(normalized.width), height: CGFloat(normalized.height))
         )
-        NSApp.applicationIconImage = image
+        setDockIcon(image)
         lastAppliedIconSignature = nil
     }
 
     private func applyLatestIcon() -> RefreshResult {
         guard let popIconURL else {
-            NSApp.applicationIconImage = fallbackApplicationIconImage()
+            setDockIcon(fallbackApplicationIconImage())
             return .missing
         }
         guard let signature = currentIconSignature() else {
@@ -236,7 +261,7 @@ final class PopletLiveIconController {
             // Fall back to the current DockPops app icon if available so the
             // live poplet never snaps back to a stale baked/default icon.
             lastAppliedIconSignature = nil
-            NSApp.applicationIconImage = fallbackApplicationIconImage()
+            setDockIcon(fallbackApplicationIconImage())
             return .missing
         }
         guard signature != lastAppliedIconSignature else { return .unchanged }
@@ -261,7 +286,7 @@ final class PopletLiveIconController {
         // The mirrored PNG is already the final composed app icon. Show it on
         // a presentation canvas so the running tile matches the intended
         // poplet app-icon size instead of filling the Dock too aggressively.
-        NSApp.applicationIconImage = image
+        setDockIcon(image)
         lastAppliedIconSignature = signature
         return .applied
     }
@@ -383,6 +408,28 @@ final class PopletLiveIconController {
             return
         }
         scheduleDebouncedRefresh()
+        scheduleProactiveHeal()
+    }
+
+    /// Heal this Poplet's bundle icon PROACTIVELY when a fresh PNG lands in the
+    /// watched `~/Applications/DockPops/Icons/` folder — whether MAIN (Companion
+    /// CLOSED) or the generator (Companion open) wrote it. The running `.accessory`
+    /// tile follows the bundle's HEALED on-disk icon, NOT `applicationIconImage`, so
+    /// healing the bundle BEFORE the click is the only thing that makes the tile
+    /// fresh on the FIRST click. Runs the same full heal the reopen path runs, just
+    /// fired on the settled watcher edit instead of one click late. Debounced + off
+    /// the main actor; `bundleNeedsHeal` no-ops when nothing changed, so the 2–3
+    /// redundant FS events of an atomic write cost nothing.
+    private func scheduleProactiveHeal() {
+        healDebounceTask?.cancel()
+        let popID = self.popID
+        let bundleURL = Bundle.main.bundleURL
+        let delay = healSettleDelay
+        healDebounceTask = Task.detached(priority: .utility) {
+            try? await Task.sleep(for: delay)
+            guard !Task.isCancelled else { return }
+            await PopletBundleIconHealer(popID: popID, bundleURL: bundleURL).healIfStale()
+        }
     }
 
     private func refreshAfterWatcherAttach() {
