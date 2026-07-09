@@ -3,6 +3,19 @@
     <channel>
         <title>DockPopsCompanion</title>
         <item>
+            <title>5</title>
+            <pubDate>Thu, 09 Jul 2026 16:54:33 -0500</pubDate>
+            <sparkle:version>30</sparkle:version>
+            <sparkle:shortVersionString>5</sparkle:shortVersionString>
+            <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
+            <description sparkle:format="markdown"><![CDATA[## DockPops Companion 5
+
+- Updated for compatibility with DockPops 5.
+- Bug fixes and stability improvements.
+]]></description>
+            <enclosure url="https://github.com/Pixley-Growth/dockpops_companion/releases/download/v5.0.0/DockPopsCompanion-5.dmg" length="8347189" type="application/octet-stream" sparkle:edSignature="2/4OKMtUgkHfpCBwJ+SOiYessxuVC36i3kG2buivMG1iB7w+nM18ff4HA8yG1DNzgNzkGHuApAnNEsF5IOWCAg=="/>
+        </item>
+        <item>
             <title>4.3</title>
             <pubDate>Fri, 05 Jun 2026 15:02:06 -0500</pubDate>
             <sparkle:version>23</sparkle:version>
@@ -35,21 +48,6 @@ A small number of icons pinned by much older versions may show a "?" after this 
 - Localization updates for German and Latin-American Spanish.
 ]]></description>
             <enclosure url="https://github.com/Pixley-Growth/dockpops_companion/releases/download/v4.1.0/DockPopsCompanion-4.1.dmg" length="8289917" type="application/octet-stream" sparkle:edSignature="QDaiRGrS3rk8dD1NrMt/2tQ7vnHaV8RuUeZN+VmeIh/VC1nfz0pwtZTBphsRk5zcfgSyPSoMUIJVI/TR8tDDAw=="/>
-        </item>
-        <item>
-            <title>4.0</title>
-            <pubDate>Mon, 18 May 2026 16:27:22 -0500</pubDate>
-            <link>https://github.com/Pixley-Growth/dockpops_companion/releases/tag/v4.0.0</link>
-            <sparkle:version>9</sparkle:version>
-            <sparkle:shortVersionString>4.0</sparkle:shortVersionString>
-            <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
-            <description sparkle:format="markdown"><![CDATA[## DockPops Companion 4.0
-
-- Drop files, folders, or apps onto a Pop's Dock icon and they are handed straight to that Pop in DockPops — the same spring-loaded drop you get on the main DockPops icon, now on every individual Pop tile.
-- Fixes Menu Bar mode: clicking a Pop's Dock icon while DockPops runs from the menu bar now opens the Pop at its own Dock tile instead of wrongly anchoring the popover to the menu bar.
-- Version-aligned to DockPops 4.0 for release parity with the main app.
-]]></description>
-            <enclosure url="https://github.com/Pixley-Growth/dockpops_companion/releases/download/v4.0.0/DockPopsCompanion-4.0.dmg" length="8270087" type="application/octet-stream" sparkle:edSignature="bjdP+2EQpq183GwjBv7V1nQv8loqmB0y96RQKR2ZGNthTrVyzFf4zyI2qI24Ig/IOfc87CkC8RXppDtxGBKCCQ=="/>
         </item>
     </channel>
 </rss>
