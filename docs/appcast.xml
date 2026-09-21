@@ -3,6 +3,18 @@
     <channel>
         <title>DockPopsCompanion</title>
         <item>
+            <title>5.5</title>
+            <pubDate>Mon, 21 Sep 2026 11:48:22 -0500</pubDate>
+            <sparkle:version>76</sparkle:version>
+            <sparkle:shortVersionString>5.5</sparkle:shortVersionString>
+            <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
+            <description sparkle:format="markdown"><![CDATA[## DockPops Companion 5.5
+
+- Bug fixes and stability improvements.
+]]></description>
+            <enclosure url="https://github.com/Pixley-Growth/dockpops_companion/releases/download/v5.5.0/DockPopsCompanion-5.5.dmg" length="8340190" type="application/octet-stream" sparkle:edSignature="EIinxsHUUPFMMlHJZyZvwct7ZTUTyQ0a5D4J2J3W3FyBd9gZDelLNr4mmcTW0TCYY8AELQ276l/7RiMffsxQDg=="/>
+        </item>
+        <item>
             <title>5</title>
             <pubDate>Thu, 09 Jul 2026 16:54:33 -0500</pubDate>
             <sparkle:version>30</sparkle:version>
@@ -33,21 +45,6 @@
 A small number of icons pinned by much older versions may show a "?" after this update. Just drag that Pop app from ~/Applications/DockPops back into the Dock once and it will work again.
 ]]></description>
             <enclosure url="https://github.com/Pixley-Growth/dockpops_companion/releases/download/v4.3.0/DockPopsCompanion-4.3.dmg" length="8344533" type="application/octet-stream" sparkle:edSignature="l1eSEkrJdS5A6HZT/9NfuiMHuxHoAg5nXan4ye0176f61TMRdXdfYWyP0E4dz5YNeK6oaYTM9s7e99SUIzIgDw=="/>
-        </item>
-        <item>
-            <title>4.1</title>
-            <pubDate>Thu, 21 May 2026 15:43:30 -0500</pubDate>
-            <sparkle:version>21</sparkle:version>
-            <sparkle:shortVersionString>4.1</sparkle:shortVersionString>
-            <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
-            <description sparkle:format="markdown"><![CDATA[## DockPops Companion 4.1
-
-- Pop apps no longer take up a slot in the Command-Tab app switcher.
-- Pop app Dock icons no longer bounce when clicked — they open instantly and quietly.
-- Fixed Pop app Dock icon sizing so a closed Pop app matches the size of the apps next to it in the Dock.
-- Localization updates for German and Latin-American Spanish.
-]]></description>
-            <enclosure url="https://github.com/Pixley-Growth/dockpops_companion/releases/download/v4.1.0/DockPopsCompanion-4.1.dmg" length="8289917" type="application/octet-stream" sparkle:edSignature="QDaiRGrS3rk8dD1NrMt/2tQ7vnHaV8RuUeZN+VmeIh/VC1nfz0pwtZTBphsRk5zcfgSyPSoMUIJVI/TR8tDDAw=="/>
         </item>
     </channel>
 </rss>
