@@ -46,6 +46,7 @@ targets:
     platform: macOS
     sources:
       - path: Sources/DockPopsPoplet
+      - path: Sources/Shared
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.dockpops.companion.poplet
@@ -56,9 +57,27 @@ targets:
         GENERATE_INFOPLIST_FILE: YES
         SKIP_INSTALL: YES
 
-  # NOTE: the former DockPopsCompanionTests target only held the poplet
-  # lifecycle logic tests, which now live in the PopletKit package. Removed
-  # here; re-add a test target when the Companion has its own tests to run.
+  # Poplet lifecycle logic tests live in the PopletKit package. This target
+  # holds Companion-side contract tests (e.g. PopletKit's recipe-version stamp
+  # == the Poplet healer's expected value).
+  DockPopsCompanionTests:
+    type: bundle.unit-test
+    platform: macOS
+    deploymentTarget: "14.0"
+    sources:
+      - path: Tests/DockPopsCompanionTests
+      - path: Sources/Shared
+    dependencies:
+      - package: PopletKit
+        product: PopletKit
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.dockpops.companion.tests
+        GENERATE_INFOPLIST_FILE: YES
+        CODE_SIGN_IDENTITY: "-"
+        CODE_SIGN_STYLE: Manual
+        CODE_SIGNING_REQUIRED: NO
+        ENABLE_HARDENED_RUNTIME: NO
 
   DockPopsCompanion:
     type: application
@@ -120,6 +139,10 @@ schemes:
         DockPopsPoplet: all
     run:
       config: Debug
+    test:
+      config: Debug
+      targets:
+        - DockPopsCompanionTests
     archive:
       config: Release
       revealArchiveInOrganizer: true
