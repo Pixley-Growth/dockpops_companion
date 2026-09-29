@@ -17,7 +17,8 @@ struct PopletBundleIconHealer: Sendable {
         category: "IconHealer"
     )
     private static let iconName = "AppIcon"
-    private static let iconRecipeVersion = 14
+    /// Must match PopletKit's stamp — see `PopletIconRecipe`.
+    private static let iconRecipeVersion = PopletIconRecipe.version
     private static let iconRecipeVersionInfoKey = "DockPopsIconRecipeVersion"
     private static let bundleIconNameInfoKey = "CFBundleIconName"
     private static let iconVariants: [(name: String, pixelSize: Int)] = [
